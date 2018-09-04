@@ -62,3 +62,7 @@ typings/
 
 .idea
 runs/
+dist/
+lib/
+es/
+build/

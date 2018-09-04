@@ -42,37 +42,41 @@ BENCHMARKS=stockticker:another npm start
 
 # Adding a benchmark
 
-Benchmarks live in the `sources/` directory. Each benchmark should copy the
-`config-overrides.js` and `"scripts"` section of the `stockticker`
-benchmark. In addition, this code must be inserted into `index.js`:
+Benchmarks live in the `sources/` directory. Each benchmark must insert this
+code into `index.js`:
 
 ```js
-import {PerformanceMetadataMarker} from "performance-mark-metadata";
-import FpsEmitter from "fps-emitter";
+import 'fps-emit'
+```
 
-const marker = new PerformanceMetadataMarker();
-window.marker = marker;
+In addition, a `config-overrides.js` must be created with these contents:
 
-const fps = new FpsEmitter();
-fps.on("update", function(FPS) {
-    // mark current FPS
-    marker.mark("FPS", {
-        details: { FPS }
-    });
-});
+```js
+module.exports = function override(config, env) {
+    //do stuff with the webpack config...
+    console.log(`Environment: ${env}`)
 
-const getFpsStats = () => {
-    const logData = performance.getEntriesByType("mark").map(entry => {
-        const meta = marker.getEntryMetadata(entry);
-        return {
-            type: entry.name,
-            timeStamp: entry.startTime,
-            meta: meta
-        };
-    });
+    if(env === "production") {
+        config.externals = {
+            "react" : "React",
+            "redux" : "Redux",
+            "react-redux" : "ReactRedux",
+            "fps-emit": "FpsEmit",
+        }
+    }
 
-    return logData;
+
+    return config;
 }
+```
 
-window.getFpsStats = getFpsStats;
+and the scripts section of `package.json` should be changed to:
+
+```json
+  "scripts": {
+    "start": "react-app-rewired  start",
+    "build": "react-app-rewired  build",
+    "test": "react-app-rewired  --env=jsdom",
+    ...
+  }
 ```

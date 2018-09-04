@@ -19,6 +19,22 @@ if (installTask.status > 0) {
   process.exit(installTask.status);
 }
 
+installTask = spawn.sync('npm', ['install'], {
+  cwd: join(__dirname, 'fps-emit'),
+  stdio: 'inherit',
+})
+if (installTask.status > 0) {
+  process.exit(installTask.status);
+}
+
+installTask = spawn.sync('npm', ['run', 'build'], {
+  cwd: join(__dirname, 'fps-emit'),
+  stdio: 'inherit',
+})
+if (installTask.status > 0) {
+  process.exit(installTask.status);
+}
+
 const sources = readdirSync(join(__dirname, 'sources'))
 sources.forEach(benchmark => {
   const src = join(__dirname, 'sources', benchmark)
@@ -32,6 +48,27 @@ sources.forEach(benchmark => {
   if (installTask.status > 0) {
     process.exit(installTask.status);
   }
+
+
+  copyFile(join(__dirname, 'copy-to-public', 'react.production.min.js'), join(src, 'public', 'react.production.min.js'), e => {
+    if (e) {
+      console.log(e)
+      process.exit(1);
+    }
+  })
+  copyFile(join(__dirname, 'copy-to-public', 'redux.min.js'), join(src, 'public', 'redux.min.js'), e => {
+    if (e) {
+      console.log(e)
+      process.exit(1);
+    }
+  })
+  copyFile(join(__dirname, 'fps-emit', 'dist', 'fps-emit.min.js'), join(src, 'public', 'fps-emit.min.js'), e => {
+    if (e) {
+      console.log(e)
+      process.exit(1);
+    }
+  })
+
   console.log(`building production version of benchmark ${benchmark}...`)
   installTask = spawn.sync('npm', ['run', 'build'], {
     cwd,
@@ -50,7 +87,7 @@ sources.forEach(benchmark => {
         copyFile(join(__dirname, 'react-redux-versions', version), join(dest, 'build', 'react-redux.min.js'), e => {
           if (e) {
             console.log(e)
-            process.exit(-1);
+            process.exit(1);
           }
         })
       })
