@@ -80,3 +80,12 @@ and the scripts section of `package.json` should be changed to:
     ...
   }
 ```
+
+Also, `index.html` must be modified to include these lines:
+
+```html
+    <script type="text/javascript" src="redux.min.js"></script>
+    <script type="text/javascript" src="react.production.min.js"></script>
+    <script type="text/javascript" src="react-redux.min.js"></script>
+    <script type="text/javascript" src="fps-emit.min.js"></script>
+```

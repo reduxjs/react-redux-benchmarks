@@ -4,8 +4,6 @@
   "private": true,
   "dependencies": {
     "chance": "^1.0.16",
-    "fps-emitter": "^1.0.0",
-    "performance-mark-metadata": "^1.0.3",
     "react": "^16.4.2",
     "react-dom": "^16.4.2",
     "react-redux": "5.0.7",
