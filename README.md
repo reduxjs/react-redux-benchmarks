@@ -39,6 +39,14 @@ or specific benchmarks:
 BENCHMARKS=stockticker:another npm start
 ```
 
+## Setting run length
+
+By default, benchmarks run for 30 seconds. To change this, use
+
+```bash
+SECONDS=10 npm start
+```
+
 
 # Adding a benchmark
 

@@ -15,6 +15,7 @@ const versions = readdirSync(join(__dirname, 'react-redux-versions')).map(versio
 
 const reduxVersions = process.env.REDUX ? process.env.REDUX.split(':') : versions
 const benchmarksToRun = process.env.BENCHMARKS ? process.env.BENCHMARKS.split(':') : sources
+const length = process.env.SECONDS ? process.env.SECONDS : 30
 
 
 
@@ -39,12 +40,12 @@ async function runBenchmarks() {
       try {
         await serverUtils.runServer(9999 + i + j*10, toRun)
 
-        console.log(`    Checking max FPS... (30 seconds)`)
-        const fpsRunResults = await serverUtils.capturePageStats(browser, URL, null);
+        console.log(`    Checking max FPS... (${length} seconds)`)
+        const fpsRunResults = await serverUtils.capturePageStats(browser, URL, null, length * 1000);
 
-        console.log(`    Running trace...    (30 seconds)`);
+        console.log(`    Running trace...    (${length} seconds)`);
         const traceFilename = join(__dirname, 'runs', `trace-${benchmark}-${version}.json`)
-        const traceRunResults = await serverUtils.capturePageStats(browser, URL, traceFilename);
+        const traceRunResults = await serverUtils.capturePageStats(browser, URL, traceFilename, length * 1000);
 
         const {fpsValues} = fpsRunResults;
         const {categories} = traceRunResults.traceMetrics.profiling;
