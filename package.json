@@ -1,0 +1,29 @@
+{
+  "name": "@reduxjs/react-redux-benchmarks",
+  "version": "0.1.0",
+  "description": "benchmark suite and runner for react-redux",
+  "main": "index.js",
+  "scripts": {
+    "test": "jest"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/reduxjs/react-redux-benchmarks.git"
+  },
+  "keywords": [
+    "react-redux",
+    "benchmark",
+    "redux"
+  ],
+  "author": "Gregory Beaver <greg.beaver.cello@gmail.com>",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/reduxjs/react-redux-benchmarks/issues"
+  },
+  "homepage": "https://github.com/reduxjs/react-redux-benchmarks#readme",
+  "dependencies": {
+    "cli-table2": "^0.2.0",
+    "puppeteer": "^1.7.0",
+    "tracealyzer": "^0.9.3"
+  }
+}
