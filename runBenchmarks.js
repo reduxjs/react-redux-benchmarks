@@ -35,9 +35,9 @@ async function runBenchmarks() {
       const browser = await puppeteer.launch({
         //headless: false
       });
-      const URL = `http://localhost:${9999 + i}`;
+      const URL = `http://localhost:${9999 + i + j*10}`;
       try {
-        await serverUtils.runServer(9999 + i, toRun)
+        await serverUtils.runServer(9999 + i + j*10, toRun)
 
         console.log(`    Checking max FPS... (30 seconds)`)
         const fpsRunResults = await serverUtils.capturePageStats(browser, URL, null);
