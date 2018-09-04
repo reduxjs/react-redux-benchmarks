@@ -7,8 +7,6 @@ import {Provider} from "react-redux";
 
 import {PerformanceMetadataMarker} from "performance-mark-metadata";
 import FpsEmitter from "fps-emitter";
-//const { PerformanceMetadataMarker } = require("performance-mark-metadata");
-//const FpsEmitter = require("fps-emitter");
 
 import configureStore from "./configureStore";
 import SpecialContext from './SpecialContext'

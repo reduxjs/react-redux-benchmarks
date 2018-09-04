@@ -4,6 +4,8 @@
   "description": "benchmark suite and runner for react-redux",
   "main": "index.js",
   "scripts": {
+    "initialize": "node ./setupRuns.js",
+    "start": "node ./runBenchmarks.js",
     "test": "jest"
   },
   "repository": {
@@ -23,7 +25,10 @@
   "homepage": "https://github.com/reduxjs/react-redux-benchmarks#readme",
   "dependencies": {
     "cli-table2": "^0.2.0",
+    "cross-spawn": "^6.0.5",
     "puppeteer": "^1.7.0",
+    "react-scripts": "^1.1.5",
+    "recursive-copy": "^2.0.9",
     "tracealyzer": "^0.9.3"
   }
 }
