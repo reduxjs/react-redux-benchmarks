@@ -1,13 +1,19 @@
 import React from 'react'
 import { render } from 'react-dom'
-import { createStore } from 'redux'
 import { Provider } from 'react-redux'
+import {
+  configureStore,
+} from '@acemarke/redux-starter-kit'
+
 import reducer from './reducers'
 import generateTree from './generateTree'
 import Node from './containers/Node'
 
 const tree = generateTree()
-const store = createStore(reducer, tree)
+const store = configureStore({
+  reducer,
+  preloadedState : tree,
+});
 
 render(
   <Provider store={store}>
