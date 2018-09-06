@@ -1,0 +1,24 @@
+{
+  "name": "tree-view",
+  "version": "0.0.1",
+  "private": true,
+  "devDependencies": {
+    "react-app-rewired": "^1.6.2",
+    "react-scripts": "^1.1.4"
+  },
+  "dependencies": {
+    "@acemarke/redux-starter-kit": "0.0.7",
+    "fps-emit": "file:../../fps-emit",
+    "react": "^16.4.2",
+    "react-dom": "^16.4.2",
+    "react-redux": "^5.0.7",
+    "redux": "^4.0",
+    "seedrandom": "^2.4.4"
+  },
+  "scripts": {
+    "start": "react-app-rewired  start",
+    "build": "react-app-rewired  build",
+    "test": "react-app-rewired  --env=jsdom",
+    "eject": "react-scripts eject"
+  }
+}
