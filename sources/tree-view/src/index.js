@@ -5,9 +5,10 @@ import {
   configureStore,
 } from '@acemarke/redux-starter-kit'
 import seedrandom from "seedrandom";
+import "fps-emit";
 
 import reducer from './reducers'
-import {increment} from "./actions";
+import {doRandomAction} from "./actions";
 import generateTree from './generateTree'
 import Node from './containers/Node'
 
@@ -25,3 +26,17 @@ render(
   </Provider>,
   document.getElementById('root')
 )
+
+
+let maxUpdates = 100, numUpdates = 0;
+
+function runUpdates() {
+  doRandomAction();
+  numUpdates++;
+
+  if(numUpdates < maxUpdates) {
+    setTimeout(runUpdates, 250);
+  }
+}
+
+setTimeout(runUpdates, 1000);
