@@ -9,7 +9,8 @@
     "react": "^16.4.2",
     "react-dom": "^16.4.2",
     "react-redux": "^5.0.7",
-    "redux": "^4.0"
+    "redux": "^4.0",
+    "seedrandom": "^2.4.4"
   },
   "scripts": {
     "start": "react-scripts start",
