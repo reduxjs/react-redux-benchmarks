@@ -14,7 +14,7 @@ import Node from './containers/Node'
 
 seedrandom("test seed", {global : true});
 
-const tree = generateTree(10);
+const tree = generateTree(5000);
 const store = configureStore({
   reducer,
   preloadedState : tree,
@@ -34,9 +34,9 @@ function runUpdates() {
   doRandomAction();
   numUpdates++;
 
-  if(numUpdates < maxUpdates) {
-    setTimeout(runUpdates, 250);
-  }
+  //if(numUpdates < maxUpdates) {
+    setTimeout(runUpdates, 25);
+  //}
 }
 
-setTimeout(runUpdates, 1000);
+setTimeout(runUpdates, 250);
