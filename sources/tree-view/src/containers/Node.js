@@ -35,25 +35,25 @@ export class Node extends Component {
   }
 
   render() {
-    const { counter, parentId, childIds } = this.props
+    const { counter, parentId, childIds, id } = this.props
     return (
       <div>
-        Counter: {counter}
+        Counter #{id}: {counter}
         {' '}
-        <button onClick={this.handleIncrementClick}>
+        <button className="increment" onClick={this.handleIncrementClick}>
           +
         </button>
         {' '}
         {typeof parentId !== 'undefined' &&
-          <a href="#" onClick={this.handleRemoveClick} // eslint-disable-line jsx-a11y/href-no-hash
+          <a href="#" className="deleteNode" onClick={this.handleRemoveClick} // eslint-disable-line jsx-a11y/href-no-hash
              style={{ color: 'lightgray', textDecoration: 'none' }}>
-            ×
+            Delete
           </a>
         }
         <ul>
           {childIds.map(this.renderChild)}
           <li key="add">
-            <a href="#" // eslint-disable-line jsx-a11y/href-no-hash
+            <a href="#" className="addChild" // eslint-disable-line jsx-a11y/href-no-hash
               onClick={this.handleAddChildClick}
             >
               Add child
