@@ -1,25 +1,26 @@
 import React, { Component } from 'react';
 import './App.css';
 import TwitterLite from './TwitterLite'
+import SpecialContext from './SpecialContext'
 
-import { createStore } from 'redux'
-import { Provider } from 'react-redux'
-
-const store = createStore(() => true)
+import { connect } from 'react-redux'
 
 class App extends Component {
-  state = { thing: true }
   componentDidMount() {
-    setInterval(() => this.setState(state => ({ thing: !state.thing })), 5)
+    setInterval(() => this.props.tweet())
   }
 
   render() {
     return (
-      <Provider store={store}>
-        {this.state.thing ? <TwitterLite /> : <div>nope</div> }
-      </Provider>
+      <div>
+        {this.props.tweets.map((tweet, i) => <TwitterLite tweet={tweet} unstable_observedBits={1 << (i%30)} />)}
+      </div>
     );
   }
 }
 
-export default App;
+function tweet() {
+  return { type: 'tweet', tweet: 'fabulous' }
+}
+
+export default connect(tweets => ({ tweets }), { tweet }, undefined, { consumer: SpecialContext.Consumer })(App);
