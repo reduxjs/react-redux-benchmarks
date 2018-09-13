@@ -7,7 +7,6 @@ module.exports = function override(config, env) {
             "react" : "React",
             "redux" : "Redux",
             "react-redux" : "ReactRedux",
-            "fps-emit": "FpsEmit",
         }
     }
 
