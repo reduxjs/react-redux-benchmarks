@@ -13,13 +13,16 @@ module.exports = {
 
     const app = express();
 
-    app.use(express.static(join(sources, 'build')))
+    app.use(express.static(sources))
 
     return new Promise((resolve, reject) => { // eslint-disable-line
       app.use((err) => {
         reject(err)
       })
-      app.listen(port, () => resolve())
+      const server = app.listen(port, () => {
+        //console.log(`Server started on ${port}`)
+        resolve(server)
+      })
     })
   },
   async capturePageStats(browser, url, traceFilename, delay = 30000) {

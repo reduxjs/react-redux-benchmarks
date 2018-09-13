@@ -62,12 +62,6 @@ sources.forEach(benchmark => {
       process.exit(1);
     }
   })
-  copyFile(join(__dirname, 'fps-emit', 'dist', 'fps-emit.min.js'), join(src, 'public', 'fps-emit.min.js'), e => {
-    if (e) {
-      console.log(e)
-      process.exit(1);
-    }
-  })
 
   console.log(`building production version of benchmark ${benchmark}...`)
   installTask = spawn.sync('npm', ['run', 'build'], {
@@ -77,23 +71,8 @@ sources.forEach(benchmark => {
   if (installTask.status > 0) {
     process.exit(installTask.status);
   }
-  readdirSync(join(__dirname, 'react-redux-versions')).forEach(version => {
-    const rplVersion = version.replace('react-redux-', '').replace('.min.js', '')
-    const dest = join(__dirname, 'runs', benchmark, rplVersion)
-    console.log(`copying benchmark ${benchmark} build to ${dest}...`)
-    copy(join(src, 'build'), join(dest, 'build'))
-      .then(() => {
-        console.log(`copying react-redux to ${dest}...`)
-        copyFile(join(__dirname, 'react-redux-versions', version), join(dest, 'build', 'react-redux.min.js'), e => {
-          if (e) {
-            console.log(e)
-            process.exit(1);
-          }
-        })
-      })
-      .catch(error => {
-        console.log(error)
-        process.exit(-1);
-      })
-  })
+
+  const dest = join(__dirname, 'runs', benchmark);
+  copy(join(src, 'build'), dest);
+
 })

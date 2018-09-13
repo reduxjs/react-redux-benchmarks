@@ -13,7 +13,7 @@ class App extends Component {
   render() {
     return (
       <div>
-        {this.props.tweets.map((tweet, i) => <TwitterLite tweet={tweet} unstable_observedBits={1 << (i%30)} />)}
+        {this.props.tweets.map((tweet, i) => <TwitterLite tweet={tweet} />)}
       </div>
     );
   }
@@ -23,4 +23,4 @@ function tweet() {
   return { type: 'tweet', tweet: 'fabulous' }
 }
 
-export default connect(tweets => ({ tweets }), { tweet }, undefined, { consumer: SpecialContext.Consumer })(App);
+export default connect(tweets => ({ tweets }), { tweet })(App);

@@ -13,7 +13,7 @@ const store = configureStore();
 
 
 ReactDOM.render(
-    <Provider store={store} context={SpecialContext.Provider}>
+    <Provider store={store} >
         <App />
     </Provider>,
     document.getElementById('root')

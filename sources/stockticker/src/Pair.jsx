@@ -48,4 +48,4 @@ class Pair extends React.Component {
     }
 }
 
-export default connect(mapState, undefined, undefined, { consumer: SpecialContext.Consumer })(Pair)
+export default connect(mapState)(Pair)
