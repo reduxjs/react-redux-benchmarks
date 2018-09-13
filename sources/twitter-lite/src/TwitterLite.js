@@ -23,7 +23,7 @@ class InternalContainer extends Component {
   }
 }
 
-const InternalContainerConnected = connect(exampleMapStateToProps, exampleMapDispatchToProps, undefined, { consumer: SpecialContext.Consumer })(
+const InternalContainerConnected = connect(exampleMapStateToProps, exampleMapDispatchToProps)(
   InternalContainer
 );
 
@@ -39,4 +39,4 @@ class ExampleContainer extends Component {
   }
 }
 
-export default connect(exampleMapStateToProps, exampleMapDispatchToProps, undefined, { consumer: SpecialContext.Consumer })(ExampleContainer);
+export default connect(exampleMapStateToProps, exampleMapDispatchToProps)(ExampleContainer);

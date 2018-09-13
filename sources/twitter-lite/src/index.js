@@ -14,6 +14,9 @@ const store = createStore((state = [], action) => {
   return state
 })
 
-ReactDOM.render(<Provider store={store} context={SpecialContext.Provider}>
-  <App />
-</Provider>, document.getElementById('root'));
+ReactDOM.render(
+  <Provider store={store}>
+   <App />
+  </Provider>,
+  document.getElementById('root')
+);
