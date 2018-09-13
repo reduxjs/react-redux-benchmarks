@@ -2,7 +2,7 @@
 'use strict';
 
 const { join } = require('path');
-const { readdirSync } = require('fs')
+const { readdirSync, copyFileSync } = require('fs')
 const puppeteer = require("puppeteer");
 const Table = require("cli-table2");
 
@@ -10,7 +10,10 @@ const Table = require("cli-table2");
 const serverUtils = require('./utils/server.js')
 
 const sources = readdirSync(join(__dirname, 'sources'))
-const versions = readdirSync(join(__dirname, 'react-redux-versions')).map(version =>
+
+const VERSIONS_FOLDER = join(__dirname, 'react-redux-versions');
+
+const versions = readdirSync(VERSIONS_FOLDER).map(version =>
   version.replace('react-redux-', '').replace('.min.js', ''))
 
 const reduxVersions = process.env.REDUX ? process.env.REDUX.split(':') : versions
@@ -36,9 +39,14 @@ async function runBenchmarks() {
       const browser = await puppeteer.launch({
         //headless: false
       });
-      const URL = `http://localhost:${9999 + i + j*10}`;
+
+      const URL = "http://localhost:9999";
       try {
-        await serverUtils.runServer(9999 + i + j*10, toRun)
+        const sourceFilePath = join(VERSIONS_FOLDER, `react-redux-${version}.min.js`);
+        const destFilePath = join(source, "react-redux.min.js")
+        copyFileSync(sourceFilePath, destFilePath);
+
+        const server = await serverUtils.runServer(9999, source);
 
         console.log(`    Checking max FPS... (${length} seconds)`)
         const fpsRunResults = await serverUtils.capturePageStats(browser, URL, null, length * 1000);
@@ -50,18 +58,16 @@ async function runBenchmarks() {
         const {fpsValues} = fpsRunResults;
         const {categories} = traceRunResults.traceMetrics.profiling;
 
-        // skip first two values = it's usually way lower due to page startup
+        // skip first value = it's usually way lower due to page startup
         const fpsValuesWithoutFirst = fpsValues.slice(1);
 
         const average = fpsValuesWithoutFirst.reduce((sum, val) => sum + val, 0) / fpsValuesWithoutFirst.length || 0;
 
         const fps = {average, values : fpsValues}
 
-
-
         versionPerfEntries[version] = {fps, profile : {categories}};
 
-
+        server.close();
       } catch (e) {
         console.error(e)
         process.exit(-1)
@@ -70,7 +76,7 @@ async function runBenchmarks() {
       }
     }
 
-    console.log(`\nResults for benchmark: ${benchmark}:`);
+    console.log(`\nResults for benchmark ${benchmark}:`);
 
     const table = new Table({
       head: ['Version', 'Avg FPS', 'Scripting', 'Rendering', 'Painting', 'FPS Values']
