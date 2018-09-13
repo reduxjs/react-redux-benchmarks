@@ -9,10 +9,11 @@
   "dependencies": {
     "@acemarke/redux-starter-kit": "0.0.7",
     "fps-emit": "file:../../fps-emit",
-    "react": "^16.4.2",
-    "react-dom": "^16.4.2",
+    "react": "^16.5.0",
+    "react-dom": "^16.5.0",
     "react-redux": "^5.0.7",
     "redux": "^4.0",
+    "schedule": "^0.3.0",
     "seedrandom": "^2.4.4"
   },
   "scripts": {
