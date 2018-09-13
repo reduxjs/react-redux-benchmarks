@@ -45,7 +45,7 @@ class App extends React.Component {
                             <ul className='list-group'>
                                 {group.map((pair, i) => {
                                     return (
-                                        <Pair key={pair.id} id={pair.id} unstable_observedBits={1 << (i%30)} />
+                                        <Pair key={pair.id} id={pair.id}  />
                                     )
                                 })}
                             </ul>
@@ -57,4 +57,4 @@ class App extends React.Component {
     }
 }
 
-export default connect(mapState, actions, undefined, { consumer: SpecialContext.Consumer })(App);
+export default connect(mapState, actions)(App);
