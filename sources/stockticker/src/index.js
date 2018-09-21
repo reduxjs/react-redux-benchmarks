@@ -11,6 +11,7 @@ import SpecialContext from './SpecialContext'
 
 const store = configureStore();
 
+console.log(store);
 
 ReactDOM.render(
     <Provider store={store} >

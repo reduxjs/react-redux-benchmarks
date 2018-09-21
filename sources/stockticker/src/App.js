@@ -1,54 +1,18 @@
-import React, { Component } from 'react';
+import React from 'react';
 import {connect} from "react-redux";
 
-import SpecialContext from './SpecialContext'
-import {fillPairs, updatePair} from "./pairActions";
+import Slice from "./Slice";
 
-import Pair from "./Pair";
-
-function mapState(state) {
-    const partition = Math.floor(state.length / 3)
-
-    return {
-        groups: [
-            state.slice(0, partition),
-            state.slice(partition, partition * 2),
-            state.slice(partition * 2)
-        ]
-    }
-}
-
-const actions = {fillPairs, updatePair};
+const mapState  = (state) => ({  slices: Array(Object.keys(state).length).fill(0) });  // just to iterate using map in render
 
 class App extends React.Component {
-    componentDidMount =  () => {
-        this.props.fillPairs()
-        this.simulate()
-    }
-
-    simulate = () => {
-        setInterval(this.props.updatePair, 13)
-
-        setInterval(this.props.updatePair, 21)
-
-        setInterval(this.props.updatePair, 34)
-
-        setInterval(this.props.updatePair, 55)
-    }
-
     render () {
         return (
             <div className='row'>
-                {this.props.groups.map((group, idx) => {
+                {this.props.slices.map((slice, idx) => {
                     return (
                         <div className='col-lg-4' key={idx}>
-                            <ul className='list-group'>
-                                {group.map((pair, i) => {
-                                    return (
-                                        <Pair key={pair.id} id={pair.id}  />
-                                    )
-                                })}
-                            </ul>
+                           <Slice idx={idx} />
                         </div>
                     )
                 })}
@@ -57,4 +21,4 @@ class App extends React.Component {
     }
 }
 
-export default connect(mapState, actions)(App);
+export default connect(mapState)(App);
