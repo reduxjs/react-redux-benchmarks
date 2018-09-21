@@ -2,9 +2,9 @@ import React, { Component } from 'react';
 import { connect } from 'react-redux';
 
 import Pair from "./Pair";
-import { fillPairs, updatePair } from "./pairActions";
+import { fillPairs } from "./pairActions";
 
-const actions = { fillPairs, updatePair };
+const actions = { fillPairs };
 
 const mapStateToProps = (state, props) => {
     return {
@@ -18,19 +18,18 @@ class Slice extends Component {
 
     componentDidMount = () => {
         this.props.fillPairs(this.props.idx);
-        this.simulate()
     }
 
-    simulate = () => {
-        const { idx } = this.props;
-        setInterval(() => this.props.updatePair(idx), 13)
+    // simulate = () => {
+    //     const { idx } = this.props;
+    //     setInterval(() => this.props.updatePair(idx), 13)
 
-        setInterval(() => this.props.updatePair(idx), 21)
+    //     setInterval(() => this.props.updatePair(idx), 21)
 
-        setInterval(() => this.props.updatePair(idx), 34)
+    //     setInterval(() => this.props.updatePair(idx), 34)
 
-        setInterval(() => this.props.updatePair(idx), 55)
-    }
+    //     setInterval(() => this.props.updatePair(idx), 55)
+    // }
 
     render() {
         const { slice, idx } = this.props;

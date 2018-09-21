@@ -25,14 +25,15 @@ export function fillPairs (id) {
   }
 }
 
-function getRandIndex () {
-    return Math.floor(Math.random() * Math.floor(c.NUM_ENTRIES / c.NUMBER_OF_SLICES))
-}
+// function getRandIndex () {
+//     return Math.floor(Math.random() * Math.floor(c.NUM_ENTRIES / c.NUMBER_OF_SLICES))
+// }
 
-export function updatePair (id) {
+export function updatePair (sliceId, pairId) {
+  console.log(sliceId, pairId);
     return {
-        type: `${c.UPDATE_PAIR}_${id}`,
-        id: getRandIndex(),
+        type: `${c.UPDATE_PAIR}_${sliceId}`,
+        id: pairId,
         value: Math.random()
     }
 }
