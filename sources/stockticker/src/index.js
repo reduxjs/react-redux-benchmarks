@@ -22,8 +22,8 @@ ReactDOM.render(
 );
 
 function updateRandomPairInSlice() {
-    const sliceId = Math.floor(Math.random() * c.NUMBER_OF_SLICES) + 1;
-    const pairId = Math.floor(Math.random() * (c.NUM_ENTRIES / c.NUMBER_OF_SLICES)) + 1;
+    const sliceId = Math.floor(Math.random() * c.NUMBER_OF_SLICES);
+    const pairId = Math.floor(Math.random() * (c.NUM_ENTRIES / c.NUMBER_OF_SLICES));
     store.dispatch(updatePair(sliceId, pairId));
 }
 

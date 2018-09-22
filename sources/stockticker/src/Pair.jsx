@@ -9,13 +9,6 @@ class Pair extends React.Component {
         value: this.props.value
     }
 
-    /*
-    componentWillReceiveProps (nextProps) {
-        this.setState({
-            direction: nextProps.value > this.props.value ? 'up' : 'down'
-        })
-    }
-    */
     static getDerivedStateFromProps(props, state) {
         if (props.value === state.value) return null;
 
