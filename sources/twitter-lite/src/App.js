@@ -1,26 +1,26 @@
 import React, { Component } from 'react';
 import './App.css';
-import TwitterLite from './TwitterLite'
-import SpecialContext from './SpecialContext'
-
 import { connect } from 'react-redux'
+import Slice from './Slice';
+
+
+const mapState = (state) => ({  slices: Array(Object.keys(state).length).fill(0) });
 
 class App extends Component {
-  componentDidMount() {
-    setInterval(() => this.props.tweet())
-  }
-
   render() {
     return (
-      <div>
-        {this.props.tweets.map((tweet, i) => <TwitterLite tweet={tweet} />)}
+      <div className='row'>
+        {this.props.slices.map((slice, idx) => {
+          return (
+              <div className='col-lg-4' key={idx}>
+                  <Slice idx={idx} />
+              </div>
+          )
+        })}
       </div>
     );
   }
 }
 
-function tweet() {
-  return { type: 'tweet', tweet: 'fabulous' }
-}
 
-export default connect(tweets => ({ tweets }), { tweet })(App);
+export default connect(mapState)(App);
