@@ -3,7 +3,7 @@
   "private": true,
   "version": "1.0.0",
   "description": "fps emitter",
-  "main": "src/index.js",
+  "main": "lib/index.js",
   "scripts": {
     "build": "cross-env BABEL_ENV=rollup NODE_ENV=production rollup -c -o dist/fps-emit.min.js",
     "test": "echo \"Error: no test specified\" && exit 1"

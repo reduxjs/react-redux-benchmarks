@@ -20,17 +20,6 @@ class Slice extends Component {
         this.props.fillPairs(this.props.idx);
     }
 
-    // simulate = () => {
-    //     const { idx } = this.props;
-    //     setInterval(() => this.props.updatePair(idx), 13)
-
-    //     setInterval(() => this.props.updatePair(idx), 21)
-
-    //     setInterval(() => this.props.updatePair(idx), 34)
-
-    //     setInterval(() => this.props.updatePair(idx), 55)
-    // }
-
     render() {
         const { slice, idx } = this.props;
         return (
