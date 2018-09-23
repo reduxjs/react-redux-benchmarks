@@ -5,8 +5,9 @@ import * as c from './constants'
 const chance = new Chance();
 
 function createPairs () {
-  const pairs = []
-  for (let i = 0; i < c.NUM_ENTRIES; i++) {
+  const pairs = [];
+  const entries = Math.floor(c.NUM_ENTRIES / c.NUMBER_OF_SLICES);
+  for (let i = 0; i < entries; i++) {
     const pair = chance.currency_pair()
     pairs.push({
       id: i,
@@ -17,21 +18,22 @@ function createPairs () {
   return pairs
 }
 
-export function fillPairs () {
+export function fillPairs (id) {
   return {
-    type: c.FILL_PAIRS,
+    type: `${c.FILL_PAIRS}_${id}`,
     pairs: createPairs()
   }
 }
 
-function getRandIndex () {
-    return Math.floor(Math.random() * (c.NUM_ENTRIES - 1))
-}
+// function getRandIndex () {
+//     return Math.floor(Math.random() * Math.floor(c.NUM_ENTRIES / c.NUMBER_OF_SLICES))
+// }
 
-export function updatePair () {
+export function updatePair (sliceId, pairId) {
+  console.log(sliceId, pairId);
     return {
-        type: c.UPDATE_PAIR,
-        id: getRandIndex(),
+        type: `${c.UPDATE_PAIR}_${sliceId}`,
+        id: pairId,
         value: Math.random()
     }
 }
