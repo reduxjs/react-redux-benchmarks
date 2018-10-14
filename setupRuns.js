@@ -49,19 +49,17 @@ sources.forEach(benchmark => {
     process.exit(installTask.status);
   }
 
+  const filesToCopy = ["react.production.min.js", "react-dom.production.min.js", "redux.min.js"];
 
-  copyFile(join(__dirname, 'copy-to-public', 'react.production.min.js'), join(src, 'public', 'react.production.min.js'), e => {
-    if (e) {
-      console.log(e)
-      process.exit(1);
-    }
+  filesToCopy.forEach( filename => {
+      copyFile(join(__dirname, 'copy-to-public', filename), join(src, 'public', filename), e => {
+          if (e) {
+              console.log(e)
+              process.exit(1);
+          }
+      })
   })
-  copyFile(join(__dirname, 'copy-to-public', 'redux.min.js'), join(src, 'public', 'redux.min.js'), e => {
-    if (e) {
-      console.log(e)
-      process.exit(1);
-    }
-  })
+    
 
   console.log(`building production version of benchmark ${benchmark}...`)
   installTask = spawn.sync('npm', ['run', 'build'], {
