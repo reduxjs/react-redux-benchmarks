@@ -39,5 +39,6 @@ class Pair extends React.Component {
         )
     }
 }
+Pair.displayName = "Pair";
 
 export default connect(mapState)(Pair)

@@ -33,5 +33,6 @@ class Slice extends Component {
         );
     }
 }
+Slice.displayName = "Slice";
 
 export default connect(mapStateToProps, actions)(Slice);

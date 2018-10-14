@@ -30,10 +30,18 @@ export function fillPairs (id) {
 // }
 
 export function updatePair (sliceId, pairId) {
-  console.log(sliceId, pairId);
+  //console.log(sliceId, pairId);
     return {
         type: `${c.UPDATE_PAIR}_${sliceId}`,
         id: pairId,
         value: Math.random()
     }
+}
+
+export function updateRandomPairInSlice() {
+  return (dispatch, getState) => {
+     const pairId = Math.floor(Math.random() * (c.NUM_ENTRIES / c.NUMBER_OF_SLICES));
+    const sliceId = Math.floor(Math.random() * c.NUMBER_OF_SLICES);
+    dispatch(updatePair(sliceId, pairId));
+  }
 }
