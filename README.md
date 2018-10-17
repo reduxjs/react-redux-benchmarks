@@ -3,6 +3,7 @@ Performance benchmark harness for React-Redux
 
 # Running benchmarks
 ```bash
+npm install
 npm run initialize
 npm start
 ```
