@@ -27,7 +27,7 @@
     "cli-table2": "^0.2.0",
     "cross-spawn": "^6.0.5",
     "puppeteer": "^1.7.0",
-    "react-scripts": "^1.1.5",
+    "react-scripts": "2.0.3",
     "recursive-copy": "^2.0.9",
     "tracealyzer": "^0.9.3"
   }
