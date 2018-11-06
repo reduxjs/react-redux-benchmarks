@@ -2,23 +2,39 @@ import React from 'react';
 import {connect} from "react-redux";
 
 import Slice from "./Slice";
+import {updateRandomPairInSlice} from "./pairActions";
 
-const mapState  = (state) => ({  slices: Array(Object.keys(state).length).fill(0) });  // just to iterate using map in render
+let slices;
+
+const mapState  = (state) => {
+    if(!slices) {
+        slices = Array(Object.keys(state).length).fill(0);
+    }
+
+    return {slices};
+}
+
+const mapDispatch = {updateRandomPairInSlice};
 
 class App extends React.Component {
     render () {
         return (
+          <div>
+            <button onClick={this.props.updateRandomPairInSlice}>Update Random Pair</button>
             <div className='row'>
-                {this.props.slices.map((slice, idx) => {
-                    return (
-                        <div className='col-lg-4' key={idx}>
-                           <Slice idx={idx} />
-                        </div>
-                    )
-                })}
+              {this.props.slices.map((slice, idx) => {
+                return (
+                  <div className='col-lg-4' key={idx}>
+                    <Slice idx={idx} />
+                  </div>
+                )
+              })}
             </div>
+          </div>
+
         )
     }
 }
+App.displayName = "App";
 
-export default connect(mapState)(App);
+export default connect(mapState, mapDispatch)(App);

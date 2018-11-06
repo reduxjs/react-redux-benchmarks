@@ -1,8 +1,8 @@
 /* eslint no-console: 0 */
 'use strict';
 
-const { join } = require('path');
-const { readdirSync, copyFileSync } = require('fs')
+const { join, normalize } = require('path');
+const { readdirSync, copyFileSync, existsSync } = require('fs')
 const puppeteer = require("puppeteer");
 const Table = require("cli-table2");
 
@@ -16,11 +16,10 @@ const VERSIONS_FOLDER = join(__dirname, 'react-redux-versions');
 const versions = readdirSync(VERSIONS_FOLDER).map(version =>
   version.replace('react-redux-', '').replace('.min.js', ''))
 
-const reduxVersions = process.env.REDUX ? process.env.REDUX.split(':') : versions
+const reduxVersions = process.env.REDUX ? process.env.REDUX.trim().split(':') : versions
 const benchmarksToRun = process.env.BENCHMARKS ? process.env.BENCHMARKS.split(':') : sources
 const length = process.env.SECONDS ? process.env.SECONDS : 30
-
-
+const trace = process.env.BENCHMARK_TRACE ? process.env.BENCHMARK_TRACE === "true" : true;
 
 async function runBenchmarks() {
   for (let j = 0; j < benchmarksToRun.length; j++) {
@@ -51,12 +50,19 @@ async function runBenchmarks() {
         console.log(`    Checking max FPS... (${length} seconds)`)
         const fpsRunResults = await serverUtils.capturePageStats(browser, URL, null, length * 1000);
 
-        console.log(`    Running trace...    (${length} seconds)`);
-        const traceFilename = join(__dirname, 'runs', `trace-${benchmark}-${version}.json`)
-        const traceRunResults = await serverUtils.capturePageStats(browser, URL, traceFilename, length * 1000);
+        let traceRunResults, categories;
+
+        if(trace) {
+          console.log(`    Running trace...    (${length} seconds)`);
+          const traceFilename = join(__dirname, 'runs', `trace-${benchmark}-${version}.json`)
+          traceRunResults = await serverUtils.capturePageStats(browser, URL, traceFilename, length * 1000);
+        }
 
         const {fpsValues} = fpsRunResults;
-        const {categories} = traceRunResults.traceMetrics.profiling;
+
+        if(trace) {
+          categories = traceRunResults.traceMetrics.profiling.categories;
+        }
 
         // skip first value = it's usually way lower due to page startup
         const fpsValuesWithoutFirst = fpsValues.slice(1);
@@ -78,8 +84,14 @@ async function runBenchmarks() {
 
     console.log(`\nResults for benchmark ${benchmark}:`);
 
+    let traceCategories = [];
+
+    if(trace) {
+      traceCategories = ['Scripting', 'Rendering', 'Painting'];
+    }
+
     const table = new Table({
-      head: ['Version', 'Avg FPS', 'Scripting', 'Rendering', 'Painting', 'FPS Values']
+      head: ['Version', 'Avg FPS', ...traceCategories,  'FPS Values']
     });
 
     Object.keys(versionPerfEntries).sort().forEach(version => {
@@ -87,12 +99,20 @@ async function runBenchmarks() {
 
       const {fps, profile} = versionResults;
 
+      let traceResults = [];
+
+      if(trace) {
+        traceResults = [
+          profile.categories.scripting.toFixed(2),
+          profile.categories.rendering.toFixed(2),
+          profile.categories.painting.toFixed(2),
+        ]
+      }
+
       table.push([
         version,
         fps.average.toFixed(2),
-        profile.categories.scripting.toFixed(2),
-        profile.categories.rendering.toFixed(2),
-        profile.categories.painting.toFixed(2),
+        ...traceResults,
         fps.values.toString()
       ])
     });
