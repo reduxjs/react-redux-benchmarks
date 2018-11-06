@@ -28,15 +28,15 @@ render(
 )
 
 
-let maxUpdates = 100, numUpdates = 0;
+let maxUpdates = 2500, numUpdates = 0;
 
 function runUpdates() {
   doRandomAction();
   numUpdates++;
 
-  //if(numUpdates < maxUpdates) {
+  if(numUpdates < maxUpdates) {
     setTimeout(runUpdates, 25);
-  //}
+  }
 }
 
 setTimeout(runUpdates, 250);
