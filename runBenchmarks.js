@@ -83,32 +83,29 @@ async function runBenchmarks() {
 
         const averageFPS = fpsValuesWithoutFirst.reduce((sum, entry) => sum + entry.FPS, 0) / fpsValuesWithoutFirst.length || 0;
 
-        const fpsValuesPlusFakeEntries = [
-            ...fpsValuesWithoutFirst,
-            {...lastEntry, timestamp : length * 1000}
-        ]
-
-        const pairwiseEntries = pairwise(fpsValuesPlusFakeEntries);
+        const pairwiseEntries = pairwise(fpsValuesWithoutFirst);
 
         const fpsValuesWithDurations = pairwiseEntries.map(pair => {
           const [first, second] = pair;
           const duration = second.timestamp - first.timestamp;
+          const durationSeconds = duration / 1000.0
 
-          return {FPS : second.FPS, duration}
+          return {FPS : first.FPS, durationSeconds}
         })
 
         const sums = fpsValuesWithDurations.reduce( (prev, current) => {
+          const weightedFPS = current.FPS * current.durationSeconds;
+
           return {
-            FPS : prev.FPS + current.FPS,
-            duration : prev.duration + current.duration
+            weightedFPS : prev.weightedFPS + weightedFPS,
+            durationSeconds : prev.durationSeconds + current.durationSeconds,
           }
-        }, {FPS : 0, duration : 0});
+        }, {FPS : 0, weightedFPS : 0, durationSeconds : 0});
 
-        const durationSeconds = sums.duration / 1000.0;
 
-        const weightedFPS = sums.FPS / durationSeconds;
+        const weightedFPS = sums.weightedFPS / sums.durationSeconds;
 
-        const fps = {averageFPS, weightedFPS, values : fpsValues}
+        const fps = {averageFPS, weightedFPS, values : fpsValuesWithoutFirst}
 
         versionPerfEntries[version] = {fps, profile : {categories}};
 
