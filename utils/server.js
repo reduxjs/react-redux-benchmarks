@@ -1,6 +1,10 @@
 /* eslint no-console: 0 */
 'use strict';
 
+const {
+    performance
+} = require('perf_hooks');
+
 const express = require("express");
 const tracealyzer = require('tracealyzer');
 
@@ -43,6 +47,8 @@ module.exports = {
     }
     await page.goto(url);
 
+    const start = performance.now();
+
     if (trace) {
       await timeout(delay + 1000);
       await page.tracing.stop();
@@ -51,14 +57,19 @@ module.exports = {
       await timeout(delay);
     }
 
+    const end = performance.now();
+
     const fpsStatsEntries = JSON.parse(
       await page.evaluate(() => JSON.stringify(window.getFpsStats()))
     ) || []
 
-    fpsValues = fpsStatsEntries.map(entry => entry.meta.details.FPS);
+    fpsValues = fpsStatsEntries.map(entry => {
+      const {FPS} = entry.meta.details;
+      return {FPS, timestamp : entry.timeStamp};
+    });
 
     await page.close();
 
-    return {fpsValues, traceMetrics};
+    return {fpsValues, traceMetrics, start, end};
   }
 }

@@ -5,6 +5,7 @@ const { join, normalize } = require('path');
 const { readdirSync, copyFileSync, existsSync } = require('fs')
 const puppeteer = require("puppeteer");
 const Table = require("cli-table2");
+const _ = require("lodash");
 
 
 const serverUtils = require('./utils/server.js')
@@ -20,6 +21,18 @@ const reduxVersions = process.env.REDUX ? process.env.REDUX.trim().split(':') : 
 const benchmarksToRun = process.env.BENCHMARKS ? process.env.BENCHMARKS.split(':') : sources
 const length = process.env.SECONDS ? process.env.SECONDS : 30
 const trace = process.env.BENCHMARK_TRACE ? process.env.BENCHMARK_TRACE === "true" : true;
+
+// Given an array of items such as ["a", "b", "c", "d"], return the pairwise entries
+// in the form [ ["a","b"], ["b","c"], ["c","d"] ]
+function pairwise(list) {
+    // Create a new list offset by 1
+    var allButFirst = _.rest(list);
+    // Pair up entries at each index
+    var zipped = _.zip(list, allButFirst);
+    // Remove last entry, as there's a mismatch from the offset
+    var pairwiseEntries = _.initial(zipped);
+    return pairwiseEntries;
+}
 
 async function runBenchmarks() {
   for (let j = 0; j < benchmarksToRun.length; j++) {
@@ -58,7 +71,7 @@ async function runBenchmarks() {
           traceRunResults = await serverUtils.capturePageStats(browser, URL, traceFilename, length * 1000);
         }
 
-        const {fpsValues} = fpsRunResults;
+        const {fpsValues, start, end} = fpsRunResults;
 
         if(trace) {
           categories = traceRunResults.traceMetrics.profiling.categories;
@@ -66,10 +79,36 @@ async function runBenchmarks() {
 
         // skip first value = it's usually way lower due to page startup
         const fpsValuesWithoutFirst = fpsValues.slice(1);
+        const lastEntry = _.last(fpsValues);
 
-        const average = fpsValuesWithoutFirst.reduce((sum, val) => sum + val, 0) / fpsValuesWithoutFirst.length || 0;
+        const averageFPS = fpsValuesWithoutFirst.reduce((sum, entry) => sum + entry.FPS, 0) / fpsValuesWithoutFirst.length || 0;
 
-        const fps = {average, values : fpsValues}
+        const fpsValuesPlusFakeEntries = [
+            ...fpsValuesWithoutFirst,
+            {...lastEntry, timestamp : length * 1000}
+        ]
+
+        const pairwiseEntries = pairwise(fpsValuesPlusFakeEntries);
+
+        const fpsValuesWithDurations = pairwiseEntries.map(pair => {
+          const [first, second] = pair;
+          const duration = second.timestamp - first.timestamp;
+
+          return {FPS : second.FPS, duration}
+        })
+
+        const sums = fpsValuesWithDurations.reduce( (prev, current) => {
+          return {
+            FPS : prev.FPS + current.FPS,
+            duration : prev.duration + current.duration
+          }
+        }, {FPS : 0, duration : 0});
+
+        const durationSeconds = sums.duration / 1000.0;
+
+        const weightedFPS = sums.FPS / durationSeconds;
+
+        const fps = {averageFPS, weightedFPS, values : fpsValues}
 
         versionPerfEntries[version] = {fps, profile : {categories}};
 
@@ -109,11 +148,13 @@ async function runBenchmarks() {
         ]
       }
 
+      const fpsNumbers = fps.values.map(entry => entry.FPS);
+
       table.push([
         version,
-        fps.average.toFixed(2),
+        fps.weightedFPS.toFixed(2),
         ...traceResults,
-        fps.values.toString()
+          fpsNumbers.toString()
       ])
     });
 
