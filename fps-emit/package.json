@@ -1,11 +1,14 @@
 {
   "name": "fps-emit",
   "private": true,
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "fps emitter",
   "main": "src/index.js",
   "scripts": {
-    "build": "cross-env BABEL_ENV=rollup NODE_ENV=production rollup -c -o dist/fps-emit.min.js",
+    "build:commonjs": "cross-env BABEL_ENV=commonjs babel src --out-dir lib",
+    "build:es": "babel src --out-dir es",
+    "build:umd:min": "cross-env NODE_ENV=production rollup -c -o dist/react-redux.min.js",
+    "build": "yarn run build:commonjs && yarn run build:es && yarn run build:umd:min",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "author": "Gregory Beaver <greg.beaver.cello@gmail.com>",

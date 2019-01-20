@@ -98,3 +98,8 @@ Also, `index.html` must be modified to include these lines:
     <script type="text/javascript" src="react-dom.production.min.js"></script>
     <script type="text/javascript" src="react-redux.min.js"></script>
 ```
+
+
+If you need to make changes to the `fps-emit` package, bump the version number in its `package.json`,
+then update each benchmark to use the newest version using `yarn upgrade-interactive` and selecting `fps-emit`
+for an update.  Then rebuild all the benchmarks using `yarn initialize`

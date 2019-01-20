@@ -64,8 +64,8 @@ module.exports = {
     ) || []
 
     fpsValues = fpsStatsEntries.map(entry => {
-      const {FPS} = entry.meta.details;
-      return {FPS, timestamp : entry.timeStamp};
+      const {FPS, isFinal} = entry.meta.details;
+      return {FPS, timestamp : entry.timeStamp, isFinal};
     });
 
     await page.close();
