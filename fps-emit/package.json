@@ -1,7 +1,7 @@
 {
   "name": "fps-emit",
   "private": true,
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "fps emitter",
   "main": "src/index.js",
   "scripts": {
