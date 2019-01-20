@@ -69,7 +69,6 @@ module.exports = function override(config, env) {
             "react" : "React",
             "redux" : "Redux",
             "react-redux" : "ReactRedux",
-            "fps-emit": "FpsEmit",
         }
     }
 
@@ -94,6 +93,6 @@ Also, `index.html` must be modified to include these lines:
 ```html
     <script type="text/javascript" src="redux.min.js"></script>
     <script type="text/javascript" src="react.production.min.js"></script>
+    <script type="text/javascript" src="react-dom.production.min.js"></script>
     <script type="text/javascript" src="react-redux.min.js"></script>
-    <script type="text/javascript" src="fps-emit.min.js"></script>
 ```
