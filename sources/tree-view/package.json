@@ -4,7 +4,7 @@
   "private": true,
   "devDependencies": {
     "react-app-rewired": "^1.6.2",
-    "react-scripts": "^1.1.4"
+    "react-scripts": "2.0.3"
   },
   "dependencies": {
     "@acemarke/redux-starter-kit": "0.0.7",
@@ -21,5 +21,11 @@
     "build": "react-app-rewired  build",
     "test": "react-app-rewired  --env=jsdom",
     "eject": "react-scripts eject"
-  }
+  },
+  "browserslist": [
+    ">0.2%",
+    "not dead",
+    "not ie <= 11",
+    "not op_mini all"
+  ]
 }

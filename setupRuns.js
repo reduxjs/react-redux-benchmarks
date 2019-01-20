@@ -11,7 +11,7 @@ console.log('clearing out old runs...')
 rimraf.sync(join(__dirname, 'runs', '*'))
 
 console.log(`installing global dependencies of all benchmarks...`)
-let installTask = spawn.sync('npm', ['install'], {
+let installTask = spawn.sync('yarn', [''], {
   cwd: __dirname,
   stdio: 'inherit',
 });
@@ -19,7 +19,7 @@ if (installTask.status > 0) {
   process.exit(installTask.status);
 }
 
-installTask = spawn.sync('npm', ['install'], {
+installTask = spawn.sync('yarn', [''], {
   cwd: join(__dirname, 'fps-emit'),
   stdio: 'inherit',
 })
@@ -27,7 +27,7 @@ if (installTask.status > 0) {
   process.exit(installTask.status);
 }
 
-installTask = spawn.sync('npm', ['run', 'build'], {
+installTask = spawn.sync('yarn', ['build'], {
   cwd: join(__dirname, 'fps-emit'),
   stdio: 'inherit',
 })
@@ -41,7 +41,7 @@ sources.forEach(benchmark => {
   let cwd
   cwd = src
   console.log(`installing dependencies of benchmark ${benchmark}...`)
-  let installTask = spawn.sync('npm', ['install'], {
+  let installTask = spawn.sync('yarn', [''], {
     cwd,
     stdio: 'inherit',
   });

@@ -1,16 +1,18 @@
 # react-redux-benchmarks
 Performance benchmark harness for React-Redux
 
+This repo expects that you are using Yarn for package management.
+
 # Running benchmarks
 ```bash
-npm run initialize
-npm start
+yarn initialize
+yarn start
 ```
 
 After benchmarks have been initialized, you can run with simply:
 
 ```bash
-npm start
+yarn start
 ```
 
 ## Running specific versions
@@ -18,25 +20,25 @@ npm start
 To specify a single version:
 
 ```bash
-REDUX=5.0.7 npm start
+REDUX=5.0.7 yarn start
 ```
 
 To specify running against multiple versions:
 
 ```bash
-REDUX=5.0.7:4.4.9 npm start
+REDUX=5.0.7:4.4.9 yarn start
 ```
 
 To run a specific benchmark:
 
 ```bash
-BENCHMARKS=stockticker npm start
+BENCHMARKS=stockticker yarn start
 ```
 
 or specific benchmarks:
 
 ```bash
-BENCHMARKS=stockticker:another npm start
+BENCHMARKS=stockticker:another yarn start
 ```
 
 ## Setting run length
@@ -44,7 +46,7 @@ BENCHMARKS=stockticker:another npm start
 By default, benchmarks run for 30 seconds. To change this, use
 
 ```bash
-SECONDS=10 npm start
+SECONDS=10 yarn start
 ```
 
 
@@ -69,7 +71,6 @@ module.exports = function override(config, env) {
             "react" : "React",
             "redux" : "Redux",
             "react-redux" : "ReactRedux",
-            "fps-emit": "FpsEmit",
         }
     }
 
@@ -94,6 +95,6 @@ Also, `index.html` must be modified to include these lines:
 ```html
     <script type="text/javascript" src="redux.min.js"></script>
     <script type="text/javascript" src="react.production.min.js"></script>
+    <script type="text/javascript" src="react-dom.production.min.js"></script>
     <script type="text/javascript" src="react-redux.min.js"></script>
-    <script type="text/javascript" src="fps-emit.min.js"></script>
 ```
