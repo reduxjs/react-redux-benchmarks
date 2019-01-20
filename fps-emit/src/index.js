@@ -13,6 +13,12 @@ fps.on("update", function(FPS) {
 });
 
 const getFpsStats = () => {
+  // fake a final entry with the same FPS
+  const finalFPS = fps.__fps
+  marker.mark("FPS", {
+      details: { FPS : finalFPS, isFinal : true }
+  });
+
   const logData = performance.getEntriesByType("mark").map(entry => {
     const meta = marker.getEntryMetadata(entry);
     return {
