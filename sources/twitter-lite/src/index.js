@@ -1,4 +1,4 @@
-import React from 'react';
+import React, {unstable_Profiler as Profiler} from 'react';
 import ReactDOM from 'react-dom';
 import './index.css';
 import 'fps-emit';
@@ -29,10 +29,26 @@ const reducers = Array(c.NUMBER_OF_SLICES).fill(0).reduce((acc, curr, i) => {
 
 
 const store = createStore(combineReducers(reducers));
+
+
+const renderResults = [];
+window.renderResults = renderResults;
+
+
+function onAppRendered(id, phase, actualTime, baseTime, startTime, commitTime, interactions = []) {
+    if(!Array.isArray(interactions)) {
+        interactions = [...interactions]
+    }
+    renderResults.push({id, phase, actualTime, baseTime, startTime, commitTime, interactions});
+}
+
+
 ReactDOM.render(
+    <Profiler id="appProfiler" onRender={onAppRendered}>
   <Provider store={store}>
    <App />
-  </Provider>,
+  </Provider>
+    </Profiler>,
   document.getElementById('root')
 );
 

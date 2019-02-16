@@ -1,11 +1,11 @@
-import React from 'react';
+import React, {unstable_Profiler as Profiler} from 'react';
 import ReactDOM from 'react-dom';
 import './index.css';
 import App from './App';
 import 'fps-emit'
 
 import * as c from './constants';
-import { updatePair, updateRandomPairInSlice } from './pairActions';
+import { updatePair, updateRandomPairInSlice, fillPairs } from './pairActions';
 
 import {Provider} from "react-redux";
 
@@ -14,10 +14,27 @@ import SpecialContext from './SpecialContext'
 
 const store = configureStore();
 
+for(let i = 0; i < c.NUMBER_OF_SLICES; i++) {
+    store.dispatch(fillPairs(i))
+}
+
+const renderResults = [];
+window.renderResults = renderResults;
+
+
+function onAppRendered(id, phase, actualTime, baseTime, startTime, commitTime, interactions = []) {
+    if(!Array.isArray(interactions)) {
+        interactions = [...interactions]
+    }
+    renderResults.push({id, phase, actualTime, baseTime, startTime, commitTime, interactions});
+}
+
 ReactDOM.render(
-    <Provider store={store} >
-        <App />
-    </Provider>,
+    <Profiler id="appProfiler" onRender={onAppRendered}>
+        <Provider store={store} >
+            <App />
+        </Provider>
+    </Profiler>,
     document.getElementById('root')
 );
 
