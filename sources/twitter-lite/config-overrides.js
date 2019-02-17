@@ -6,6 +6,7 @@ module.exports = function override(config, env) {
         config.externals = {
             "react" : "React",
             "redux" : "Redux",
+            "react-dom" : "ReactDOM",
             "react-redux" : "ReactRedux",
         }
     }

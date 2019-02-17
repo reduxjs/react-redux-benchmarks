@@ -63,6 +63,10 @@ module.exports = {
       await page.evaluate(() => JSON.stringify(window.getFpsStats()))
     ) || []
 
+    const reactTimingEntries = JSON.parse(
+        await page.evaluate(() => JSON.stringify(window.renderResults))
+    ) || []
+
     fpsValues = fpsStatsEntries.map(entry => {
       const {FPS, isFinal} = entry.meta.details;
       return {FPS, timestamp : entry.timeStamp, isFinal};
@@ -70,6 +74,6 @@ module.exports = {
 
     await page.close();
 
-    return {fpsValues, traceMetrics, start, end};
+    return {fpsValues, traceMetrics, start, end, reactTimingEntries};
   }
 }

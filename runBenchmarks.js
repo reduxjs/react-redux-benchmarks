@@ -81,7 +81,7 @@ async function runBenchmarks() {
         const fpsValuesWithoutFirst = fpsValues.slice(1);
         const lastEntry = _.last(fpsValues);
 
-        const averageFPS = fpsValuesWithoutFirst.reduce((sum, entry) => sum + entry.FPS, 0) / fpsValuesWithoutFirst.length || 0;
+        const averageFPS = fpsValuesWithoutFirst.reduce((sum, entry) => sum + entry.FPS, 0) / fpsValuesWithoutFirst.length || 1;
 
         const pairwiseEntries = pairwise(fpsValuesWithoutFirst);
 
@@ -107,7 +107,16 @@ async function runBenchmarks() {
 
         const fps = {averageFPS, weightedFPS, values : fpsValuesWithoutFirst}
 
-        versionPerfEntries[version] = {fps, profile : {categories}};
+
+        const {reactTimingEntries} = fpsRunResults;
+
+        const [mountEntry, ...updateEntries] = reactTimingEntries;
+
+        const mountTime = mountEntry.actualTime;
+
+        const averageUpdateTime = updateEntries.reduce((sum, entry) => sum + entry.actualTime, 0) / updateEntries.length || 1;
+
+        versionPerfEntries[version] = {fps, profile : {categories}, mountTime, averageUpdateTime};
 
         server.close();
       } catch (e) {
@@ -127,13 +136,13 @@ async function runBenchmarks() {
     }
 
     const table = new Table({
-      head: ['Version', 'Avg FPS', ...traceCategories,  'FPS Values']
+      head: ['Version', 'Avg FPS', "Render\n(Mount, Avg)", ...traceCategories,  'FPS Values']
     });
 
     Object.keys(versionPerfEntries).sort().forEach(version => {
       const versionResults = versionPerfEntries[version];
 
-      const {fps, profile} = versionResults;
+      const {fps, profile, mountTime, averageUpdateTime,} = versionResults;
 
       let traceResults = [];
 
@@ -150,6 +159,7 @@ async function runBenchmarks() {
       table.push([
         version,
         fps.weightedFPS.toFixed(2),
+        `${mountTime.toFixed(1)}, ${averageUpdateTime.toFixed(1)}`,
         ...traceResults,
           fpsNumbers.toString()
       ])

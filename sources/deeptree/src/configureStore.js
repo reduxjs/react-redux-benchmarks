@@ -1,7 +1,7 @@
 import {applyMiddleware, compose, createStore} from 'redux'
 import { unstable_trace as trace } from 'scheduler/tracing';
 
-import rootReducer from './pairsReducer'
+import rootReducer from './counters';
 const composeEnhancers = window.__REDUX_DEVTOOLS_EXTENSION_COMPOSE__ || compose
 
 function createThunkMiddleware(extraArgument) {

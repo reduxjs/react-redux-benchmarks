@@ -17,7 +17,7 @@ class Slice extends Component {
     state = {};
 
     componentDidMount = () => {
-        this.props.fillPairs(this.props.idx);
+        //this.props.fillPairs(this.props.idx);
     }
 
     render() {

@@ -5,18 +5,16 @@ import App from './App';
 import 'fps-emit'
 
 import * as c from './constants';
-import { updatePair, updateRandomPairInSlice, fillPairs } from './pairActions';
+//import { updatePair, updateRandomPairInSlice, fillPairs } from './pairActions';
+import {initialize, incrementRandomCounter} from "./counters";
 
 import {Provider} from "react-redux";
 
 import configureStore from "./configureStore";
-import SpecialContext from './SpecialContext'
 
 const store = configureStore();
 
-for(let i = 0; i < c.NUMBER_OF_SLICES; i++) {
-    store.dispatch(fillPairs(i))
-}
+store.dispatch(initialize({numberOfCounters: c.NUMBER_OF_SLICES}));
 
 const renderResults = [];
 window.renderResults = renderResults;
@@ -46,7 +44,7 @@ function updateRandomPairInSlice() {
 }
 */
 function doRandomUpdate() {
-  store.dispatch(updateRandomPairInSlice());
+  store.dispatch(incrementRandomCounter());
 }
 
 //setInterval(updateRandomPairInSlice, 500);
