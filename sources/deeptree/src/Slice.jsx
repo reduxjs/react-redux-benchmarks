@@ -1,16 +1,18 @@
 import React, { Component } from 'react';
 import { connect } from 'react-redux';
 
-import Pair from "./Pair";
-import { fillPairs } from "./pairActions";
-
-const actions = { fillPairs };
 
 const mapStateToProps = (state, props) => {
     return {
-        slice: state[props.idx]
+        value: state[props.idx]
     }
 }
+
+const Counter = ({value}) => {
+    return <div>Value: {value}</div>
+}
+
+const ConnectedCounter = connect(mapStateToProps)(Counter);
 
 
 class Slice extends Component {
@@ -21,18 +23,26 @@ class Slice extends Component {
     }
 
     render() {
-        const { slice, idx } = this.props;
+        const { remainingDepth, idx } = this.props;
+
+        if(remainingDepth > 0) {
+            return (
+                <div>
+                    {idx}.{remainingDepth}
+                    <div>
+                        <Slice idx={idx} remainingDepth={remainingDepth - 1} />
+                    </div>
+                </div>
+            )
+        }
+
         return (
-            <ul className='list-group'>
-                {slice.map((pair) => {
-                    return (
-                        <Pair key={pair.id} sliceId={idx} pairId={pair.id} />
-                    )
-                })}
-            </ul>
+            <ConnectedCounter idx={idx} />
         );
     }
 }
 Slice.displayName = "Slice";
 
-export default connect(mapStateToProps, actions)(Slice);
+
+export default Slice
+//export default connect(mapStateToProps, actions)(Slice);

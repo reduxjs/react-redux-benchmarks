@@ -2,30 +2,32 @@ import React from 'react';
 import {connect} from "react-redux";
 
 import Slice from "./Slice";
-import {updateRandomPairInSlice} from "./pairActions";
+import * as c from "./constants";
+import {incrementRandomCounter} from "./counters";
 
 let slices;
 
 const mapState  = (state) => {
     if(!slices) {
-        slices = Array(Object.keys(state).length).fill(0);
+        slices = Object.keys(state).map(key => Number(key))
+        slices.sort()
     }
 
     return {slices};
 }
 
-const mapDispatch = {updateRandomPairInSlice};
+const mapDispatch = {incrementRandomCounter};
 
 class App extends React.Component {
     render () {
         return (
           <div>
-            <button onClick={this.props.updateRandomPairInSlice}>Update Random Pair</button>
+            <button onClick={this.props.incrementRandomCounter}>Update Random Counter</button>
             <div className='row'>
               {this.props.slices.map((slice, idx) => {
                 return (
-                  <div className='col-lg-4' key={idx}>
-                    <Slice idx={idx} />
+                  <div style={{display: "inline-block", minWidth : 70}} key={idx}>
+                    <Slice idx={slice} remainingDepth={c.TREE_DEPTH}/>
                   </div>
                 )
               })}
