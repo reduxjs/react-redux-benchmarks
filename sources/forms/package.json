@@ -14,7 +14,8 @@
     "react-scripts": "2.1.5",
     "redux": "^4.0.0",
     "redux-starter-kit": "^0.4.3",
-    "reselect": "^3.0.1"
+    "reselect": "^3.0.1",
+    "user-event": "^1.4.4"
   },
   "scripts": {
     "start": "react-app-rewired  start",
