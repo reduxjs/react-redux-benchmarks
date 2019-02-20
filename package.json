@@ -30,5 +30,8 @@
     "puppeteer": "^1.7.0",
     "recursive-copy": "^2.0.9",
     "tracealyzer": "^0.9.3"
+  },
+  "devDependencies": {
+    "prettier": "^1.16.4"
   }
 }
