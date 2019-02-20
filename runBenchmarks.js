@@ -34,6 +34,97 @@ function pairwise(list) {
     return pairwiseEntries;
 }
 
+function printBenchmarkResults(benchmark, versionPerfEntries) {
+    console.log(`\nResults for benchmark ${benchmark}:`);
+
+    let traceCategories = [];
+
+    if(trace) {
+        traceCategories = ['Scripting', 'Rendering', 'Painting'];
+    }
+
+    const table = new Table({
+        head : ['Version', 'Avg FPS', "Render\n(Mount, Avg)", ...traceCategories, 'FPS Values']
+    });
+
+    Object.keys(versionPerfEntries).sort().forEach(version => {
+        const versionResults = versionPerfEntries[version];
+
+        const {fps, profile, mountTime, averageUpdateTime,} = versionResults;
+
+        let traceResults = [];
+
+        if(trace) {
+            traceResults = [
+                profile.categories.scripting.toFixed(2),
+                profile.categories.rendering.toFixed(2),
+                profile.categories.painting.toFixed(2),
+            ]
+        }
+
+        const fpsNumbers = fps.values.map(entry => entry.FPS);
+
+        table.push([
+            version,
+            fps.weightedFPS.toFixed(2),
+            `${mountTime.toFixed(1)}, ${averageUpdateTime.toFixed(1)}`,
+            ...traceResults,
+            fpsNumbers.toString()
+        ])
+    });
+
+    console.log(table.toString())
+}
+
+function calculateBenchmarkStats(fpsRunResults, categories, traceRunResults, versionPerfEntries, version) {
+    const {fpsValues, start, end} = fpsRunResults;
+
+    if(trace) {
+        categories = traceRunResults.traceMetrics.profiling.categories;
+    }
+
+    // skip first value = it's usually way lower due to page startup
+    const fpsValuesWithoutFirst = fpsValues.slice(1);
+    const lastEntry = _.last(fpsValues);
+
+    const averageFPS = fpsValuesWithoutFirst.reduce((sum, entry) => sum + entry.FPS, 0) / fpsValuesWithoutFirst.length || 1;
+
+    const pairwiseEntries = pairwise(fpsValuesWithoutFirst);
+
+    const fpsValuesWithDurations = pairwiseEntries.map(pair => {
+        const [first, second] = pair;
+        const duration = second.timestamp - first.timestamp;
+        const durationSeconds = duration / 1000.0
+
+        return {FPS : first.FPS, durationSeconds}
+    })
+
+    const sums = fpsValuesWithDurations.reduce((prev, current) => {
+        const weightedFPS = current.FPS * current.durationSeconds;
+
+        return {
+            weightedFPS : prev.weightedFPS + weightedFPS,
+            durationSeconds : prev.durationSeconds + current.durationSeconds,
+        }
+    }, {FPS : 0, weightedFPS : 0, durationSeconds : 0});
+
+
+    const weightedFPS = sums.weightedFPS / sums.durationSeconds;
+
+    const fps = {averageFPS, weightedFPS, values : fpsValuesWithoutFirst}
+
+
+    const {reactTimingEntries} = fpsRunResults;
+
+    const [mountEntry, ...updateEntries] = reactTimingEntries;
+
+    const mountTime = mountEntry.actualTime;
+
+    const averageUpdateTime = updateEntries.reduce((sum, entry) => sum + entry.actualTime, 0) / updateEntries.length || 1;
+
+    versionPerfEntries[version] = {fps, profile : {categories}, mountTime, averageUpdateTime};
+}
+
 async function runBenchmarks() {
   for (let j = 0; j < benchmarksToRun.length; j++) {
     const benchmark = benchmarksToRun[j]
@@ -71,54 +162,9 @@ async function runBenchmarks() {
           traceRunResults = await serverUtils.capturePageStats(browser, URL, traceFilename, length * 1000);
         }
 
-        const {fpsValues, start, end} = fpsRunResults;
+          calculateBenchmarkStats(fpsRunResults, categories, traceRunResults, versionPerfEntries, version);
 
-        if(trace) {
-          categories = traceRunResults.traceMetrics.profiling.categories;
-        }
-
-        // skip first value = it's usually way lower due to page startup
-        const fpsValuesWithoutFirst = fpsValues.slice(1);
-        const lastEntry = _.last(fpsValues);
-
-        const averageFPS = fpsValuesWithoutFirst.reduce((sum, entry) => sum + entry.FPS, 0) / fpsValuesWithoutFirst.length || 1;
-
-        const pairwiseEntries = pairwise(fpsValuesWithoutFirst);
-
-        const fpsValuesWithDurations = pairwiseEntries.map(pair => {
-          const [first, second] = pair;
-          const duration = second.timestamp - first.timestamp;
-          const durationSeconds = duration / 1000.0
-
-          return {FPS : first.FPS, durationSeconds}
-        })
-
-        const sums = fpsValuesWithDurations.reduce( (prev, current) => {
-          const weightedFPS = current.FPS * current.durationSeconds;
-
-          return {
-            weightedFPS : prev.weightedFPS + weightedFPS,
-            durationSeconds : prev.durationSeconds + current.durationSeconds,
-          }
-        }, {FPS : 0, weightedFPS : 0, durationSeconds : 0});
-
-
-        const weightedFPS = sums.weightedFPS / sums.durationSeconds;
-
-        const fps = {averageFPS, weightedFPS, values : fpsValuesWithoutFirst}
-
-
-        const {reactTimingEntries} = fpsRunResults;
-
-        const [mountEntry, ...updateEntries] = reactTimingEntries;
-
-        const mountTime = mountEntry.actualTime;
-
-        const averageUpdateTime = updateEntries.reduce((sum, entry) => sum + entry.actualTime, 0) / updateEntries.length || 1;
-
-        versionPerfEntries[version] = {fps, profile : {categories}, mountTime, averageUpdateTime};
-
-        server.close();
+          server.close();
       } catch (e) {
         console.error(e)
         process.exit(-1)
@@ -126,46 +172,7 @@ async function runBenchmarks() {
         await browser.close()
       }
     }
-
-    console.log(`\nResults for benchmark ${benchmark}:`);
-
-    let traceCategories = [];
-
-    if(trace) {
-      traceCategories = ['Scripting', 'Rendering', 'Painting'];
-    }
-
-    const table = new Table({
-      head: ['Version', 'Avg FPS', "Render\n(Mount, Avg)", ...traceCategories,  'FPS Values']
-    });
-
-    Object.keys(versionPerfEntries).sort().forEach(version => {
-      const versionResults = versionPerfEntries[version];
-
-      const {fps, profile, mountTime, averageUpdateTime,} = versionResults;
-
-      let traceResults = [];
-
-      if(trace) {
-        traceResults = [
-          profile.categories.scripting.toFixed(2),
-          profile.categories.rendering.toFixed(2),
-          profile.categories.painting.toFixed(2),
-        ]
-      }
-
-      const fpsNumbers = fps.values.map(entry => entry.FPS);
-
-      table.push([
-        version,
-        fps.weightedFPS.toFixed(2),
-        `${mountTime.toFixed(1)}, ${averageUpdateTime.toFixed(1)}`,
-        ...traceResults,
-          fpsNumbers.toString()
-      ])
-    });
-
-    console.log(table.toString())
+      printBenchmarkResults(benchmark, versionPerfEntries);
   }
 
 
