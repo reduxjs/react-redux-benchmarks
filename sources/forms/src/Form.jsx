@@ -3,6 +3,8 @@ import { connect } from "react-redux";
 
 import { updateInput } from "./inputs";
 
+import * as c from "./constants";
+
 const mapState = (state, ownProps) => {
   return {
     text: state[ownProps.id]
@@ -19,11 +21,18 @@ class Form extends React.Component {
   render() {
     const { text, id } = this.props;
 
+    const fillers = Array.from({
+      length: c.NUMBER_OF_CHECKBOXES_PER_FORM
+    }).map((item, i) => <input type="checkbox" key={i} />);
+
     return (
-      <form>
-        Form {id}:
-        <input type="text" value={text} onChange={this.onChange} />
-      </form>
+      <React.Fragment>
+        <form style={{ display: "flex", alignItems: "flex-start" }}>
+          Form {id}:
+          <textarea id={`input-${id}`} value={text} onChange={this.onChange} />
+        </form>
+        <div>{fillers}</div>
+      </React.Fragment>
     );
   }
 }

@@ -7,7 +7,7 @@ import "fps-emit";
 
 import * as c from "./constants";
 
-import { initialize } from "./inputs";
+import { initialize, typeTextInRandomInput } from "./inputs";
 
 import configureStore from "./configureStore";
 
@@ -49,3 +49,17 @@ ReactDOM.render(
   </Profiler>,
   document.getElementById("root")
 );
+
+async function infiniteBobRoss() {
+  while (true) {
+    await typeTextInRandomInput();
+  }
+}
+
+setTimeout(infiniteBobRoss, 50);
+
+setTimeout(infiniteBobRoss, 70);
+
+setTimeout(infiniteBobRoss, 90);
+
+setTimeout(infiniteBobRoss, 110);

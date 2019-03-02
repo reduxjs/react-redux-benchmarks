@@ -1,1 +1,2 @@
-export const NUMBER_OF_INPUTS = 5;
+export const NUMBER_OF_INPUTS = 500;
+export const NUMBER_OF_CHECKBOXES_PER_FORM = 50;
