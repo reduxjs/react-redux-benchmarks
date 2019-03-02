@@ -5,8 +5,7 @@ import App from "./App";
 import "fps-emit";
 
 import * as c from "./constants";
-//import { updatePair, updateRandomPairInSlice, fillPairs } from './pairActions';
-import { initialize, incrementRandomCounter } from "./counters";
+import { initialize, incrementRandomCounter, incrementMany } from "./counters";
 
 import { Provider } from "react-redux";
 
@@ -51,13 +50,6 @@ ReactDOM.render(
   document.getElementById("root")
 );
 
-/*
-function updateRandomPairInSlice() {
-    const sliceId = Math.floor(Math.random() * c.NUMBER_OF_SLICES);
-    const pairId = Math.floor(Math.random() * (c.NUM_ENTRIES / c.NUMBER_OF_SLICES));
-    store.dispatch(updatePair(sliceId, pairId));
-}
-*/
 function doRandomUpdate() {
   store.dispatch(incrementRandomCounter());
 }
@@ -66,12 +58,10 @@ function doUpdateMany(mod) {
   store.dispatch(incrementMany({ mod }));
 }
 
-//setInterval(updateRandomPairInSlice, 500);
-
 setInterval(doRandomUpdate, 13);
 
-setInterval(doRandomUpdate, 21);
+setInterval(() => doUpdateMany(5), 21);
 
 setInterval(doRandomUpdate, 34);
 
-setInterval(doRandomUpdate, 55);
+setInterval(() => doUpdateMany(3), 55);
