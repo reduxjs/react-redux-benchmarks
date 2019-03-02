@@ -1,22 +1,19 @@
 import React, { unstable_Profiler as Profiler } from "react";
 import ReactDOM from "react-dom";
+import { Provider } from "react-redux";
 import "./index.css";
 import App from "./App";
 import "fps-emit";
 
 import * as c from "./constants";
-import { updatePair, updateRandomPairInSlice, fillPairs } from "./pairActions";
 
-import { Provider } from "react-redux";
+import { initialize, typeTextInRandomInput } from "./inputs";
 
 import configureStore from "./configureStore";
-import SpecialContext from "./SpecialContext";
 
 const store = configureStore();
 
-for (let i = 0; i < c.NUMBER_OF_SLICES; i++) {
-  store.dispatch(fillPairs(i));
-}
+store.dispatch(initialize({ numberOfInputs: c.NUMBER_OF_INPUTS }));
 
 const renderResults = [];
 window.renderResults = renderResults;
@@ -53,23 +50,16 @@ ReactDOM.render(
   document.getElementById("root")
 );
 
-/*
-function updateRandomPairInSlice() {
-    const sliceId = Math.floor(Math.random() * c.NUMBER_OF_SLICES);
-    const pairId = Math.floor(Math.random() * (c.NUM_ENTRIES / c.NUMBER_OF_SLICES));
-    store.dispatch(updatePair(sliceId, pairId));
-}
-*/
-function doRandomUpdate() {
-  store.dispatch(updateRandomPairInSlice());
+async function infiniteBobRoss() {
+  while (true) {
+    await typeTextInRandomInput();
+  }
 }
 
-//setInterval(updateRandomPairInSlice, 500);
+setTimeout(infiniteBobRoss, 50);
 
-setInterval(doRandomUpdate, 13);
+setTimeout(infiniteBobRoss, 70);
 
-setInterval(doRandomUpdate, 21);
+setTimeout(infiniteBobRoss, 90);
 
-setInterval(doRandomUpdate, 34);
-
-setInterval(doRandomUpdate, 55);
+setTimeout(infiniteBobRoss, 110);

@@ -1,11 +1,11 @@
-import { connect } from 'react-redux';
-import { createSelector } from 'reselect';
-import React, { Component } from 'react';
+import { connect } from "react-redux";
+import { createSelector } from "reselect";
+import React, { Component } from "react";
 import SpecialContext from "./SpecialContext";
 
 const exampleMapStateToProps = createSelector(
-  (state, props) => 'foobar',
-  (foo) => ({ foo })
+  (state, props) => "foobar",
+  foo => ({ foo })
 );
 
 const foobar = () => {};
@@ -23,9 +23,10 @@ class InternalContainer extends Component {
   }
 }
 
-const InternalContainerConnected = connect(exampleMapStateToProps, exampleMapDispatchToProps)(
-  InternalContainer
-);
+const InternalContainerConnected = connect(
+  exampleMapStateToProps,
+  exampleMapDispatchToProps
+)(InternalContainer);
 
 class Example extends Component {
   render() {
@@ -39,4 +40,7 @@ class ExampleContainer extends Component {
   }
 }
 
-export default connect(exampleMapStateToProps, exampleMapDispatchToProps)(ExampleContainer);
+export default connect(
+  exampleMapStateToProps,
+  exampleMapDispatchToProps
+)(ExampleContainer);

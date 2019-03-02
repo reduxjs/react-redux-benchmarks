@@ -62,7 +62,7 @@ typings/
 # next.js build output
 .next
 
-.idea
+.idea/
 runs/
 dist/
 lib/
