@@ -6,7 +6,8 @@
   "scripts": {
     "initialize": "node ./setupRuns.js",
     "start": "node ./runBenchmarks.js",
-    "test": "jest"
+    "test": "jest",
+    "format" : "prettier --write \"sources/**/src/*.{js,jsx}\" *.js"
   },
   "repository": {
     "type": "git",
