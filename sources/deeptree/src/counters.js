@@ -12,6 +12,8 @@ const { reducer, actions } = createSlice({
     },
     increment(state, action) {
       const { counterId } = action.payload;
+      const value = state[counterId] || 0;
+      state[counterId] = value + 1;
     },
     incrementMany(state, action) {
       const { mod } = action.payload;
