@@ -10,7 +10,6 @@ import { updatePair, updateRandomPairInSlice, fillPairs } from "./pairActions";
 import { Provider } from "react-redux";
 
 import configureStore from "./configureStore";
-import SpecialContext from "./SpecialContext";
 
 const store = configureStore();
 
