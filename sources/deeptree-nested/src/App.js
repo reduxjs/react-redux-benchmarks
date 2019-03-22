@@ -3,28 +3,61 @@ import { connect } from "react-redux";
 
 import Slice from "./Slice";
 import * as c from "./constants";
-import { incrementRandomCounter } from "./counters";
+import { incrementMany, incrementRandomCounter } from "./counters";
+import { appendRandomCharacter, appendRandomCharToMany } from "./strings";
 
 let slices;
 
 const mapState = state => {
   if (!slices) {
-    slices = Object.keys(state).map(key => Number(key));
-    slices.sort();
+    slices = Array.from({ length: c.NUMBER_OF_SLICES }).map(
+      (dummy, idx) => idx
+    );
+    //slices.sort();
   }
 
   return { slices };
 };
 
-const mapDispatch = { incrementRandomCounter };
+function doUpdateMany(mod) {
+  return incrementMany({ mod });
+}
+
+const mapDispatch = {
+  incrementRandomCounter,
+  incrementFifth: () => doUpdateMany(5),
+  incrementThird: () => doUpdateMany(3),
+  appendRandomCharacter,
+  appendMany: () => appendRandomCharToMany(4)
+};
 
 class App extends React.Component {
   render() {
     return (
       <div>
-        <button onClick={this.props.incrementRandomCounter}>
-          Update Random Counter
-        </button>
+        <div>
+          <button
+            id="incrementRandom"
+            onClick={this.props.incrementRandomCounter}
+          >
+            Update Random Counter
+          </button>
+          <button id="incrementFifth" onClick={this.props.incrementFifth}>
+            Update 1/5 Counters
+          </button>
+          <button id="incrementThird" onClick={this.props.incrementThird}>
+            Update 1/3 Counters
+          </button>
+          <button
+            id="appendRandomCharacter"
+            onClick={this.props.appendRandomCharacter}
+          >
+            Append Random Char
+          </button>
+          <button id="appendMany" onClick={this.props.appendMany}>
+            Append Char to Many
+          </button>
+        </div>
         <div className="row">
           {this.props.slices.map((slice, idx) => {
             return (

@@ -50,18 +50,18 @@ ReactDOM.render(
   document.getElementById("root")
 );
 
-function doRandomUpdate() {
-  store.dispatch(incrementRandomCounter());
+function clickButton(id) {
+  const element = document.getElementById(id);
+
+  if (element) {
+    element.click();
+  }
 }
 
-function doUpdateMany(mod) {
-  store.dispatch(incrementMany({ mod }));
-}
+const MULTIPLIER = 2;
 
-setInterval(doRandomUpdate, 13);
-
-setInterval(() => doUpdateMany(5), 21);
-
-setInterval(doRandomUpdate, 34);
-
-setInterval(() => doUpdateMany(3), 55);
+setInterval(() => clickButton("incrementRandom"), 13 * MULTIPLIER);
+setInterval(() => clickButton("appendRandomCharacter"), 37 * MULTIPLIER);
+setInterval(() => clickButton("incrementFifth"), 103 * MULTIPLIER);
+setInterval(() => clickButton("incrementThird"), 193 * MULTIPLIER);
+setInterval(() => clickButton("appendMany"), 251 * MULTIPLIER);

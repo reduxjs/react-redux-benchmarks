@@ -2,6 +2,7 @@ import { createSlice } from "redux-starter-kit";
 import * as c from "./constants";
 
 const { reducer, actions } = createSlice({
+  slice: "counters",
   initialState: {},
   reducers: {
     initialize(state, action) {
