@@ -1,7 +1,6 @@
 import { connect } from "react-redux";
 import { createSelector } from "reselect";
 import React, { Component } from "react";
-import SpecialContext from "./SpecialContext";
 
 const exampleMapStateToProps = createSelector(
   (state, props) => "foobar",

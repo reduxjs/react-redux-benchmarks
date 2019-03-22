@@ -5,7 +5,6 @@ import "fps-emit";
 import { createStore, combineReducers } from "redux";
 import { Provider } from "react-redux";
 import App from "./App";
-import SpecialContext from "./SpecialContext";
 
 import { addTweet } from "./actions";
 

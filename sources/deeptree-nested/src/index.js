@@ -5,7 +5,7 @@ import App from "./App";
 import "fps-emit";
 
 import * as c from "./constants";
-import { updatePair, updateRandomPairInSlice, fillPairs } from "./pairActions";
+import { initialize, incrementRandomCounter, incrementMany } from "./counters";
 
 import { Provider } from "react-redux";
 
@@ -13,9 +13,7 @@ import configureStore from "./configureStore";
 
 const store = configureStore();
 
-for (let i = 0; i < c.NUMBER_OF_SLICES; i++) {
-  store.dispatch(fillPairs(i));
-}
+store.dispatch(initialize({ numberOfCounters: c.NUMBER_OF_SLICES }));
 
 const renderResults = [];
 window.renderResults = renderResults;
@@ -52,23 +50,18 @@ ReactDOM.render(
   document.getElementById("root")
 );
 
-/*
-function updateRandomPairInSlice() {
-    const sliceId = Math.floor(Math.random() * c.NUMBER_OF_SLICES);
-    const pairId = Math.floor(Math.random() * (c.NUM_ENTRIES / c.NUMBER_OF_SLICES));
-    store.dispatch(updatePair(sliceId, pairId));
-}
-*/
-function doRandomUpdate() {
-  store.dispatch(updateRandomPairInSlice());
+function clickButton(id) {
+  const element = document.getElementById(id);
+
+  if (element) {
+    element.click();
+  }
 }
 
-//setInterval(updateRandomPairInSlice, 500);
+const MULTIPLIER = 2;
 
-setInterval(doRandomUpdate, 13);
-
-setInterval(doRandomUpdate, 21);
-
-setInterval(doRandomUpdate, 34);
-
-setInterval(doRandomUpdate, 55);
+setInterval(() => clickButton("incrementRandom"), 13 * MULTIPLIER);
+setInterval(() => clickButton("appendRandomCharacter"), 37 * MULTIPLIER);
+setInterval(() => clickButton("incrementFifth"), 103 * MULTIPLIER);
+setInterval(() => clickButton("incrementThird"), 193 * MULTIPLIER);
+setInterval(() => clickButton("appendMany"), 251 * MULTIPLIER);
