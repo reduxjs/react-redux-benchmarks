@@ -18,6 +18,6 @@ const Slice = React.memo(({ idx }) => {
       })}
     </ul>
   );
-};
+});
 
 export default Slice;
