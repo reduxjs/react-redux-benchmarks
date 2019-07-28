@@ -10,6 +10,9 @@ const _ = require("lodash");
 const serverUtils = require("./utils/server.js");
 
 const sources = readdirSync(join(__dirname, "sources"));
+const benchmarks = [...new Set(sources.map(
+  s => s.replace(/-(connect|useSelector|useTrackedState)$/, '')
+))];
 
 const VERSIONS_FOLDER = join(__dirname, "react-redux-versions");
 
@@ -20,9 +23,19 @@ const versions = readdirSync(VERSIONS_FOLDER).map(version =>
 const reduxVersions = process.env.REDUX
   ? process.env.REDUX.trim().split(":")
   : versions;
+const reduxTypeVersions = reduxVersions.reduce((a, v) => {
+  if (v.startsWith("rrr-")) {
+    return a.concat([["useSelector", v], ["useTrackedState", v]]);
+  }
+  const [major, minor] = /^(\d+)\.(\d+)\./.exec(v);
+  if (major >= 7 && minor >= 1) {
+    return a.concat([["connect", v], ["useSelector", v]]);
+  }
+  return a.concat([["connect", v]]);
+}, []);
 const benchmarksToRun = process.env.BENCHMARKS
   ? process.env.BENCHMARKS.split(":")
-  : sources;
+  : benchmarks;
 const length = process.env.SECONDS ? process.env.SECONDS : 30;
 const trace = process.env.BENCHMARK_TRACE
   ? process.env.BENCHMARK_TRACE === "true"
@@ -51,7 +64,7 @@ function printBenchmarkResults(benchmark, versionPerfEntries) {
 
   const table = new Table({
     head: [
-      "Version",
+      "Type-Version",
       "Avg FPS",
       "Render\n(Mount, Avg)",
       ...traceCategories,
@@ -150,11 +163,11 @@ async function runBenchmarks() {
 
     const versionPerfEntries = {};
 
-    const source = join(__dirname, "runs", benchmark);
     console.log(`Running benchmark ${benchmark}`);
 
-    for (let i = 0; i < reduxVersions.length; i++) {
-      const version = reduxVersions[i];
+    for (let i = 0; i < reduxTypeVersions.length; i++) {
+      const [type, version] = reduxTypeVersions[i];
+      const source = join(__dirname, "runs", `${benchmark}-${type}`);
       const toRun = join(source, version);
       console.log(`  react-redux version: ${version}`);
       const browser = await puppeteer.launch({
@@ -187,7 +200,7 @@ async function runBenchmarks() {
           const traceFilename = join(
             __dirname,
             "runs",
-            `trace-${benchmark}-${version}.json`
+            `trace-${benchmark}-${type}-${version}.json`
           );
           traceRunResults = await serverUtils.capturePageStats(
             browser,
@@ -197,7 +210,7 @@ async function runBenchmarks() {
           );
         }
 
-        versionPerfEntries[version] = calculateBenchmarkStats(
+        versionPerfEntries[`${type}-${version}`] = calculateBenchmarkStats(
           fpsRunResults,
           categories,
           traceRunResults
