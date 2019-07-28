@@ -11,7 +11,7 @@ const Node  = ({ id, parentId }) => {
     dispatch(actions.increment(id));
   };
 
-  handleAddChildClick = e => {
+  const handleAddChildClick = e => {
     e.preventDefault()
 
     const action = actions.createNode();
@@ -19,7 +19,7 @@ const Node  = ({ id, parentId }) => {
     dispatch(actions.addChild(id, action.nodeId));
   };
 
-  handleRemoveClick = e => {
+  const handleRemoveClick = e => {
     e.preventDefault()
 
     dispatch(actions.removeChild(parentId, id));
