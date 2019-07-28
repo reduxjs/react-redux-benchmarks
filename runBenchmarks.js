@@ -27,7 +27,7 @@ const reduxTypeVersions = reduxVersions.reduce((a, v) => {
   if (v.startsWith("rrr-")) {
     return a.concat([["useSelector", v], ["useTrackedState", v]]);
   }
-  const [major, minor] = /^(\d+)\.(\d+)\./.exec(v);
+  const [, major, minor] = /^(\d+)\.(\d+)\./.exec(v);
   if (major >= 7 && minor >= 1) {
     return a.concat([["connect", v], ["useSelector", v]]);
   }
@@ -169,7 +169,7 @@ async function runBenchmarks() {
       const [type, version] = reduxTypeVersions[i];
       const source = join(__dirname, "runs", `${benchmark}-${type}`);
       const toRun = join(source, version);
-      console.log(`  react-redux version: ${version}`);
+      console.log(`  react-redux type-version: ${type}-${version}`);
       const browser = await puppeteer.launch({
         //headless: false
       });
