@@ -1,0 +1,35 @@
+{
+  "name": "twitter-lite",
+  "version": "0.1.0",
+  "private": true,
+  "dependencies": {
+    "fps-emit": "file:../../fps-emit",
+    "react": "^16.6.0",
+    "react-dom": "^16.6.0",
+    "react-redux": "^5.0.7",
+    "react-scripts": "2.0.3",
+    "redux": "^4.0.0",
+    "reselect": "^3.0.1"
+  },
+  "scripts": {
+    "start": "react-app-rewired  start",
+    "build": "react-app-rewired  build",
+    "test": "react-scripts test --env=jsdom",
+    "eject": "react-scripts eject"
+  },
+  "browserslist": {
+    "development": [
+      "last 2 chrome versions",
+      "last 2 firefox versions",
+      "last 2 edge versions"
+    ],
+    "production": [
+      ">0.25%",
+      "not op_mini all",
+      "ie 11"
+    ]
+  },
+  "devDependencies": {
+    "react-app-rewired": "^1.6.2"
+  }
+}
