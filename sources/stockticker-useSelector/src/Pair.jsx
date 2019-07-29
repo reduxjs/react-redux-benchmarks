@@ -1,16 +1,10 @@
 import React, { useEffect, useRef } from "react";
 import { shallowEqual, useSelector } from "react-redux";
 
-const Pair = ({ sliceId, pairId }) => {
+const Pair = React.memo(({ sliceId, pairId }) => {
   const prevValue = useRef(null);
-  const { name, value, direction } = useSelector(state => {
-    const pair = state[sliceId][pairId];
-    return {
-      name: pair.name,
-      value: pair.value,
-      direction: pair.value > prevValue.current ? "up" : "down";
-    };
-  }, shallowEqual);
+  const { name, value } = useSelector(state => state[sliceId][pairId], shallowEqual);
+  const direction = value > prevValue.current ? "up" : "down";
   useEffect(() => {
     prevValue.current = value;
   }, [value]);
@@ -36,7 +30,7 @@ const Pair = ({ sliceId, pairId }) => {
       </span>
     </li>
   );
-};
+});
 Pair.displayName = "Pair";
 
 export default Pair;

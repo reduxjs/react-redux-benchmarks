@@ -1,7 +1,7 @@
 import React, { useEffect, useRef } from "react";
-import { useTrackedStaet } from "react-redux";
+import { useTrackedState } from "react-redux";
 
-const Pair = ({ sliceId, pairId }) => {
+const Pair = React.memo(({ sliceId, pairId }) => {
   const prevValue = useRef(null);
   const state = useTrackedState();
   const { name, value } = state[sliceId][pairId];
@@ -31,7 +31,7 @@ const Pair = ({ sliceId, pairId }) => {
       </span>
     </li>
   );
-};
+});
 Pair.displayName = "Pair";
 
 export default Pair;

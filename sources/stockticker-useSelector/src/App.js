@@ -4,10 +4,17 @@ import { useSelector, useDispatch } from "react-redux";
 import Slice from "./Slice";
 import { updateRandomPairInSlice } from "./pairActions";
 
+let slicesNaiveCache;
+
 const App = () => {
   const dispatch = useDispatch();
   const updateRandomPair = () => dispatch(updateRandomPairInSlice());
-  const slices = useSelector(state => Array(Object.keys(state).length).fill(0));
+  const slices = useSelector(state => {
+    if (!slicesNaiveCache) {
+      slicesNaiveCache = Array(Object.keys(state).length).fill(0);
+    }
+    return slicesNaiveCache;
+  });
   return (
     <div>
       <button onClick={updateRandomPair}>
