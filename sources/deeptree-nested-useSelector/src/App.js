@@ -8,18 +8,6 @@ import { appendRandomCharacter, appendRandomCharToMany } from "./strings";
 
 let slicesNaiveCache;
 
-function doUpdateMany(mod) {
-  return incrementMany({ mod });
-}
-
-const mapDispatch = {
-  incrementRandomCounter,
-  incrementFifth: () => doUpdateMany(5),
-  incrementThird: () => doUpdateMany(3),
-  appendRandomCharacter,
-  appendMany: () => appendRandomCharToMany(4)
-};
-
 const App = () => {
   const dispatch = useDispatch();
   const slices = useSelector(state => {

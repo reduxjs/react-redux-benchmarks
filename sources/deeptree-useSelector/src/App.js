@@ -7,8 +7,6 @@ import { incrementRandomCounter } from "./counters";
 
 let slicesNaiveCache;
 
-const mapDispatch = { incrementRandomCounter };
-
 const App = () => {
   const dispatch = useDispatch();
   const slices = useSelector(state => {

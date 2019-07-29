@@ -11,8 +11,6 @@ const mapState = (state, ownProps) => {
   };
 };
 
-const mapDispatch = { updateInput };
-
 const Form = ({ id }) => {
   const dispatch = useDispatch();
   const state = useTrackedState();
