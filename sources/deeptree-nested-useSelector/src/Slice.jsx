@@ -4,26 +4,32 @@ import { shallowEqual, useSelector, useDispatch } from "react-redux";
 import { initialize, createStringId } from "./strings";
 import { TEXT_INPUT_MOD } from "./constants";
 
+const naiveShallowObjEqual = (a, b) => {
+  // reactive-react-redux doesn't export shallowEqual
+  const keysA = Object.keys(a);
+  const keysB = Object.keys(b);
+  if (keysA.length !== keysB.length) return false;
+  return keysA.every(key => a[key] === b[key]);
+};
+
 const Counter = ({ idx }) => {
-  const value = state.counters[idx]
+  const value = useSelector(state => state.counters[idx]);
   return <div>Value: {value}</div>;
 };
 
 Counter.displayName = "Counter";
 
-const textMapDispatch = { initialize };
-
-const TextDisplay = ({ idx, inputId, text, stringId, children }) => {
+const TextDisplay = ({ idx, inputId, children }) => {
   const dispatch = useDispatch();
   const { text, stringId } = useSelector(state => {
     const stringId = createStringId(idx, inputId); //`${idx}-${remainingDepth}`;
     const text = state.strings[stringId] || "unknown";
     return { text, stringId };
-  }, shallowEqual);
+  }, shallowEqual || naiveShallowObjEqual);
 
   useEffect(() => {
     dispatch(initialize({ stringId }));
-  });
+  }, []);
 
   return (
     <div>

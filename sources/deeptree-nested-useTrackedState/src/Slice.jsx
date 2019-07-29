@@ -5,15 +5,14 @@ import { initialize, createStringId } from "./strings";
 import { TEXT_INPUT_MOD } from "./constants";
 
 const Counter = ({ idx }) => {
-  const value = state.counters[idx]
+  const state = useTrackedState();
+  const value = state.counters[idx];
   return <div>Value: {value}</div>;
 };
 
 Counter.displayName = "Counter";
 
-const textMapDispatch = { initialize };
-
-const TextDisplay = ({ idx, inputId, text, stringId, children }) => {
+const TextDisplay = ({ idx, inputId, children }) => {
   const dispatch = useDispatch();
   const state = useTrackedState();
   const stringId = createStringId(idx, inputId); //`${idx}-${remainingDepth}`;
@@ -21,7 +20,7 @@ const TextDisplay = ({ idx, inputId, text, stringId, children }) => {
 
   useEffect(() => {
     dispatch(initialize({ stringId }));
-  });
+  }, []);
 
   return (
     <div>
