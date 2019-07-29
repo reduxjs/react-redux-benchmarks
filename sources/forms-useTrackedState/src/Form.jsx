@@ -29,7 +29,7 @@ const Form = ({ id }) => {
     <React.Fragment>
       <form style={{ display: "flex", alignItems: "flex-start" }}>
         Form {id}:
-        <textarea id={`input-${id}`} value={text} onChange={this.onChange} />
+        <textarea id={`input-${id}`} value={text} onChange={onChange} />
       </form>
       <div>{fillers}</div>
     </React.Fragment>

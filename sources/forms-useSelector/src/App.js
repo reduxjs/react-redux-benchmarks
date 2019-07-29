@@ -24,23 +24,21 @@ const App = () => {
     }
     return slicesNaiveCache;
   });
-  render() {
-    return (
-      <div>
-        <button onClick={infiniteBobRoss}>Type Text</button>
-        <div className="row">
-          {slices.map((slice, idx) => {
-            return (
-              <div style={{ display: "inline-block", minWidth: 70 }} key={idx}>
-                <Form id={slice} />
-              </div>
-            );
-          })}
-        </div>
+  return (
+    <div>
+      <button onClick={infiniteBobRoss}>Type Text</button>
+      <div className="row">
+        {slices.map((slice, idx) => {
+          return (
+            <div style={{ display: "inline-block", minWidth: 70 }} key={idx}>
+              <Form id={slice} />
+            </div>
+          );
+        })}
       </div>
-    );
-  }
-}
+    </div>
+  );
+};
 App.displayName = "App";
 
 export default App;
