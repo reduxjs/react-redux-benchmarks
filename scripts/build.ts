@@ -64,6 +64,12 @@ async function bundle(options: BuildOptions) {
     plugins: [],
   })
 
+  // Copy over the HTML host page
+  fs.copyFileSync(
+    'src/common/index.html',
+    path.join(outputFolder, 'index.html')
+  )
+
   // for (const chunk of result.outputFiles) {
   //   const esVersion =
   //     target in esVersionMappings
