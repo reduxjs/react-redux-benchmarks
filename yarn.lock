@@ -11,11 +11,13 @@ __metadata:
   dependencies:
     cli-table2: ^0.2.0
     cross-spawn: ^6.0.5
+    esbuild: ^0.12.28
     express: ^4.16.4
-    prettier: ^1.16.4
+    prettier: latest
     puppeteer: ^1.7.0
     recursive-copy: ^2.0.9
     tracealyzer: ^0.9.3
+    typescript: ^4.4.3
   languageName: unknown
   linkType: soft
 
@@ -358,6 +360,15 @@ __metadata:
   dependencies:
     es6-promise: ^4.0.3
   checksum: 657d2f0623ddec94f7e3a881fcd73e33c26e796c25791169b50527014b58995a1cc35578595b6f28a71896d44dc00a98e6cf838804582c8fa38f9a4bb7ef1761
+  languageName: node
+  linkType: hard
+
+"esbuild@npm:^0.12.28":
+  version: 0.12.28
+  resolution: "esbuild@npm:0.12.28"
+  bin:
+    esbuild: bin/esbuild
+  checksum: 5996e2f6b2dbdb7f833683b8341c8eaae6060967f4a5c26119d0785b4094fdc30de76608561a5bf5de055c59a6ee413d8b65bbbce26177102369fd275316df22
   languageName: node
   linkType: hard
 
@@ -843,12 +854,12 @@ __metadata:
   languageName: node
   linkType: hard
 
-"prettier@npm:^1.16.4":
-  version: 1.19.1
-  resolution: "prettier@npm:1.19.1"
+"prettier@npm:latest":
+  version: 2.4.1
+  resolution: "prettier@npm:2.4.1"
   bin:
-    prettier: ./bin-prettier.js
-  checksum: e5fcdfe5e159ef5c5480245353cf8fb5bbd1b8afff266f31f281641825238f8a645e58472f77cd75a09ccc45d44c335466e8d901ec138c2bda05e1bd6ea1077c
+    prettier: bin-prettier.js
+  checksum: d72ebe33441651cdb334d05d8d180bedbb6f8ca9db47163719b9763f3f471d27b9dc86b9f2c9383773681ff836eb5951acd1809871077c9313609f7b7e05554e
   languageName: node
   linkType: hard
 
@@ -1144,6 +1155,16 @@ __metadata:
   version: 0.0.6
   resolution: "typedarray@npm:0.0.6"
   checksum: c9ef0176aaf32593514c31e5c6edc1db970847aff6e1f0a0570a6ac0cc996335792f394c2fcec59cc76691d22a01888ea073a2f3c6930cfcf7c519addf4e2ad7
+  languageName: node
+  linkType: hard
+
+"typescript@npm:^4.4.3":
+  version: 4.4.3
+  resolution: "typescript@npm:4.4.3"
+  bin:
+    tsc: bin/tsc
+    tsserver: bin/tsserver
+  checksum: 0da3a2a96506240557512ee49ff37a882c49c8c803444b90b98984e50d5d2e526885d57cd0f75225525413630b0e070e0e9ab4538485852fa1c158a6e7925cbb
   languageName: node
   linkType: hard
 
