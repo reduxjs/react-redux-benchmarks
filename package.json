@@ -7,7 +7,7 @@
     "initialize": "node ./setupRuns.js",
     "start": "node ./runBenchmarks.js",
     "test": "jest",
-    "format" : "prettier --write \"sources/**/src/*.{js,jsx}\" *.js"
+    "format": "prettier --write \"sources/**/src/*.{js,jsx}\" *.js"
   },
   "repository": {
     "type": "git",
