@@ -275,7 +275,7 @@ async function main({ scenarios, versions }: MainArgs) {
   }
 }
 
-const scenarios = ['counter']
+const scenarios = ['counter', 'twitter-lite']
 const versions = ['7.2.5']
 
 main({
