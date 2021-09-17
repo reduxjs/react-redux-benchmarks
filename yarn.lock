@@ -34,6 +34,7 @@ __metadata:
     react-redux: ^7.2.5
     recursive-copy: ^2.0.9
     redux: ^4.1.1
+    reselect: ^4.0.0
     tracealyzer: ^0.9.3
     typescript: ^4.4.3
     yargs: ^17.1.1
@@ -1310,6 +1311,13 @@ __metadata:
   version: 2.1.1
   resolution: "require-directory@npm:2.1.1"
   checksum: f495d02d89c385af2df4b26f0216ece091e99710d358d0ede424126c476d0c639e8bd77dcd237c00a6a5658f3d862e7513164f8c280263052667d06df830eb23
+  languageName: node
+  linkType: hard
+
+"reselect@npm:^4.0.0":
+  version: 4.0.0
+  resolution: "reselect@npm:4.0.0"
+  checksum: 3480930929f673f12962cdde140dce48ea8ba171cd428bb2c7639672e41770bd6b64e935bc0400f47cfa960f617c7ac068c4309527373825d11e27262f08c0a3
   languageName: node
   linkType: hard
 
