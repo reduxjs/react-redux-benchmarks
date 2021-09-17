@@ -6,7 +6,9 @@ import { Provider } from 'react-redux'
 // eslint-disable-next-line import/no-dynamic-require, global-require
 // const { App, store } = require(`./scenarios/${process.env.NAME!}`)
 
-document.title = process.env.NAME!
+document.title = `React-Redux Benchmarks: ${process.env.NAME!} / ${
+  process.env.RR_VERSION
+}`
 
 // @ts-ignore
 const renderResults = []
@@ -40,10 +42,12 @@ export const renderApp = (App: React.ReactNode, store: Store) => {
     </Profiler>
   )
 
+  const domNode = document.getElementById('root')!
   if (process.env.CONCURRENT_RENDERING) {
-    const root = ReactDOM.createRoot(document.getElementById('app')!)
+    const domNode = document.getElementById('root')!
+    const root = ReactDOM.createRoot(domNode)
     root.render(rootElements)
   } else {
-    ReactDOM.render(rootElements, document.getElementById('app')!)
+    ReactDOM.render(rootElements, domNode)
   }
 }

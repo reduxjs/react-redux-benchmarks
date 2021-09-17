@@ -54,7 +54,10 @@ async function bundle(options: BuildOptions) {
     mainFields: ['browser', 'module', 'main'],
     conditions: ['browser'],
     define: {
-      'process.env.NODE_ENV': JSON.stringify('production')
+      'process.env.NODE_ENV': JSON.stringify('production'),
+      'process.env.NAME': JSON.stringify(scenarioName),
+      'process.env.RR_VERSION': JSON.stringify(reactReduxVersion),
+      'process.env.CONCURRENT_RENDERING': JSON.stringify(false),
     },
     // define: env
     //   ? {

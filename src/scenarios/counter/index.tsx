@@ -11,7 +11,7 @@ const counterReducer = (state = 0, action: any) => {
   return state
 }
 
-export const store = createStore(counterReducer)
+const store = createStore(counterReducer)
 
 const CounterApp = () => {
   const counter = useSelector((state: number) => state)
