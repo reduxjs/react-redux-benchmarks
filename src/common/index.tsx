@@ -3,6 +3,8 @@ import ReactDOM from 'react-dom'
 import { Store } from 'redux'
 import { Provider } from 'react-redux'
 
+import './fps-emit'
+
 // eslint-disable-next-line import/no-dynamic-require, global-require
 // const { App, store } = require(`./scenarios/${process.env.NAME!}`)
 
@@ -33,7 +35,7 @@ const onAppRendered: ProfilerProps['onRender'] = (
   })
 }
 
-export const renderApp = (App: React.ReactNode, store: Store) => {
+export const renderApp = (App: React.ComponentType, store: Store) => {
   const rootElements = (
     <Profiler id="appProfiler" onRender={onAppRendered}>
       <Provider store={store}>
