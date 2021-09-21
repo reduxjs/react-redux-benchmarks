@@ -26,6 +26,8 @@
   },
   "homepage": "https://github.com/reduxjs/react-redux-benchmarks#readme",
   "dependencies": {
+    "@reduxjs/toolkit": "^1.6.1",
+    "chance": "^1.1.8",
     "cli-table2": "^0.2.0",
     "cross-spawn": "^6.0.5",
     "events": "^3.0.0",
@@ -43,6 +45,7 @@
     "recursive-copy": "^2.0.9",
     "redux": "^4.1.1",
     "reselect": "^4.0.0",
+    "seedrandom": "^3.0.5",
     "tracealyzer": "^0.9.3"
   },
   "devDependencies": {

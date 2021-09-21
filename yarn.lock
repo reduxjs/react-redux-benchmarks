@@ -18,10 +18,12 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@reduxjs/react-redux-benchmarks@workspace:."
   dependencies:
+    "@reduxjs/toolkit": ^1.6.1
     "@types/fs-extra": ^9.0.12
     "@types/react": ^17.0.21
     "@types/react-dom": ^17.0.9
     "@types/yargs": ^17.0.2
+    chance: ^1.1.8
     cli-table2: ^0.2.0
     cross-spawn: ^6.0.5
     esbuild: ^0.12.28
@@ -43,11 +45,32 @@ __metadata:
     recursive-copy: ^2.0.9
     redux: ^4.1.1
     reselect: ^4.0.0
+    seedrandom: ^3.0.5
     tracealyzer: ^0.9.3
     typescript: ^4.4.3
     yargs: ^17.1.1
   languageName: unknown
   linkType: soft
+
+"@reduxjs/toolkit@npm:^1.6.1":
+  version: 1.6.1
+  resolution: "@reduxjs/toolkit@npm:1.6.1"
+  dependencies:
+    immer: ^9.0.1
+    redux: ^4.1.0
+    redux-thunk: ^2.3.0
+    reselect: ^4.0.0
+  peerDependencies:
+    react: ^16.14.0 || ^17.0.0
+    react-redux: ^7.2.1
+  peerDependenciesMeta:
+    react:
+      optional: true
+    react-redux:
+      optional: true
+  checksum: fc7f8211a74e4ccb246870e9f3dddbd2f9a79ce50ed3c3bb68a59af2b279712e0cba0690479416ef3fea6cfcc1e8d257da8e6a4a49a306d38d83d80182329cfb
+  languageName: node
+  linkType: hard
 
 "@types/fs-extra@npm:^9.0.12":
   version: 9.0.12
@@ -276,6 +299,13 @@ __metadata:
   version: 3.0.0
   resolution: "bytes@npm:3.0.0"
   checksum: 98d6c0ab36f7a5527226fd928e65495ffd3d53cb22da627eba3300eed36bd283ae3dfdf3a0aa017df13a09115b5b8847e3d51f66c2f0304a262264c86a317c05
+  languageName: node
+  linkType: hard
+
+"chance@npm:^1.1.8":
+  version: 1.1.8
+  resolution: "chance@npm:1.1.8"
+  checksum: 1df1b442e25b5e6175b7f3866f448212ef7900058d10d81a4b381a4ca8c275cbf0ab9ea8618a1e89e743999e7f8fa8152a5c5f1fc9194a2404cdc96461bab779
   languageName: node
   linkType: hard
 
@@ -784,6 +814,13 @@ __metadata:
   dependencies:
     safer-buffer: ">= 2.1.2 < 3"
   checksum: 8000b43fcfbc38c15cc91e19e3b2b1c388618dacddfd6096b3a87f70242da33368ef8a985405d671bc3fe1bfe5c2056326c891445a2d4587bb340fdeb4f460a0
+  languageName: node
+  linkType: hard
+
+"immer@npm:^9.0.1":
+  version: 9.0.6
+  resolution: "immer@npm:9.0.6"
+  checksum: 48c9b673ee0f3a05f0651f26c8ccdcbc034a47502dd26e716bd7bb301bcede194d1c5e895d4d6ec8d1e7bfb6444dd1056095b3f10e6c5e08cc3e798497a96531
   languageName: node
   linkType: hard
 
@@ -1413,7 +1450,14 @@ __metadata:
   languageName: node
   linkType: hard
 
-"redux@npm:^4.0.0, redux@npm:^4.1.1":
+"redux-thunk@npm:^2.3.0":
+  version: 2.3.0
+  resolution: "redux-thunk@npm:2.3.0"
+  checksum: 2d7210b88cef244384ab15bfe0c0f79a7d5a2fe059825da121121ec75378b175860695fafd5265386a0fd4b86212cc49e5972825f7bc9f803ad8753229f0258b
+  languageName: node
+  linkType: hard
+
+"redux@npm:^4.0.0, redux@npm:^4.1.0, redux@npm:^4.1.1":
   version: 4.1.1
   resolution: "redux@npm:4.1.1"
   dependencies:
@@ -1482,6 +1526,13 @@ __metadata:
     loose-envify: ^1.1.0
     object-assign: ^4.1.1
   checksum: 89742f5a7094d69ff0b890ff56d47662ccb698d01d2f5a8b8cc4bcf3dd3d57724d6d27c1d710244310464da91bdb7b740a9757a41bc23865aaa6cdf16f1cbed2
+  languageName: node
+  linkType: hard
+
+"seedrandom@npm:^3.0.5":
+  version: 3.0.5
+  resolution: "seedrandom@npm:3.0.5"
+  checksum: 8ca859bd79cc6a4367783f19d802ef4651f957da388f162f45c4e32c4d4df8cb55649b25b9d66cf73f905d920640b8da9ae04418feb40b41c9c7c767a1c49691
   languageName: node
   linkType: hard
 
