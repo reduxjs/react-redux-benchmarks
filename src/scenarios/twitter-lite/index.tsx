@@ -8,7 +8,7 @@ import App from './App'
 
 const ADD_TWEET = 'add-tweet'
 
-const NUMBER_OF_SLICES = 3
+const NUMBER_OF_SLICES = 1000
 
 function addTweet(id: string) {
   return {
