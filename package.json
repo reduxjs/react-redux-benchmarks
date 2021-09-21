@@ -27,6 +27,8 @@
   "homepage": "https://github.com/reduxjs/react-redux-benchmarks#readme",
   "dependencies": {
     "@reduxjs/toolkit": "^1.6.1",
+    "@testing-library/dom": "^8.5.0",
+    "@testing-library/user-event": "^13.2.1",
     "chance": "^1.1.8",
     "cli-table2": "^0.2.0",
     "cross-spawn": "^6.0.5",
