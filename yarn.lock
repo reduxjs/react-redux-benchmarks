@@ -27,6 +27,7 @@ __metadata:
     esbuild: ^0.12.28
     express: ^4.16.4
     fs-extra: ^10.0.0
+    glob: ^7.1.3
     prettier: latest
     puppeteer: ^1.7.0
     react: 0.0.0-experimental-50263d327-20210914
