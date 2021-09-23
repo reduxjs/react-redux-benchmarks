@@ -8,6 +8,7 @@ import rimraf from 'rimraf'
 import alias from 'esbuild-plugin-alias'
 import glob from 'glob'
 import yargs from 'yargs'
+import semver from 'semver'
 
 const pkg = require(path.join(process.cwd(), 'package.json'))
 
@@ -45,6 +46,16 @@ async function bundle(options: BuildOptions) {
     reactReduxVersion = '7.2.5',
     concurrent = false,
   } = options ?? {}
+
+  if (scenarioName.includes('hooks')) {
+    if (semver.lt(reactReduxVersion, '7.1.0')) {
+      console.log(
+        `Skipping build for scenario ${scenarioName}, version ${reactReduxVersion}`
+      )
+      // Hooks didn't exist until React-Redux 7.1, skip this build
+      return
+    }
+  }
 
   const outputFolder = path.join('dist', reactReduxVersion, scenarioName)
   fs.ensureDirSync(outputFolder)
