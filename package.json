@@ -4,11 +4,9 @@
   "description": "benchmark suite and runner for react-redux",
   "main": "index.js",
   "scripts": {
-    "initialize": "node ./setupRuns.js",
     "start": "node ./runBenchmarks.js",
-    "test": "jest",
     "format": "prettier --write \"sources/**/src/*.{js,jsx}\" *.js",
-    "esbuild-test": "node scripts/cli.js"
+    "build": "node scripts/cli.js"
   },
   "repository": {
     "type": "git",
