@@ -1,95 +1,63 @@
-import React, { Component } from "react";
-import { connect } from "react-redux";
+import React, { useEffect } from 'react'
+import { shallowEqual, useSelector, useDispatch } from 'react-redux'
 
-import { initialize, createStringId } from "./strings";
-import { TEXT_INPUT_MOD } from "./constants";
+import { initialize, createStringId } from './strings'
+import { TEXT_INPUT_MOD } from './constants'
 
-const counterMapState = (state, props) => {
-  return {
-    value: state.counters[props.idx]
-  };
-};
-
-const Counter = ({ value }) => {
-  return <div>Value: {value}</div>;
-};
-
-Counter.displayName = "Counter";
-
-const ConnectedCounter = connect(counterMapState)(Counter);
-
-const textMapState = (state, ownProps) => {
-  const stringId = createStringId(ownProps.idx, ownProps.inputId); //`${ownProps.idx}-${ownProps.remainingDepth}`;
-  const text = state.strings[stringId] || "unknown";
-
-  return { text, stringId };
-};
-
-const textMapDispatch = { initialize };
-
-class TextDisplay extends Component {
-  componentDidMount() {
-    const { stringId } = this.props;
-    this.props.initialize({ stringId });
-  }
-
-  render() {
-    const { text, stringId, children } = this.props;
-
-    return (
-      <div>
-        Text {stringId}:<br />
-        <textarea value={text} />
-        {children}
-      </div>
-    );
-  }
+const Counter = ({ idx }) => {
+  const value = useSelector((state) => state.counters[idx])
+  return <div>Value: {value}</div>
 }
-TextDisplay.displayName = "TextDisplay";
 
-const ConnectedTextDisplay = connect(
-  textMapState,
-  textMapDispatch
-)(TextDisplay);
+Counter.displayName = 'Counter'
 
-class Slice extends Component {
-  state = {};
+const TextDisplay = ({ idx, inputId, children }) => {
+  const dispatch = useDispatch()
+  const stringId = createStringId(idx, inputId)
+  const text = useSelector((state) => {
+    //`${idx}-${remainingDepth}`;
+    const text = state.strings[stringId] || 'unknown'
+    return text
+  })
 
-  componentDidMount = () => {
-    //this.props.fillPairs(this.props.idx);
-  };
+  useEffect(() => {
+    dispatch(initialize({ stringId }))
+  }, [])
 
-  render() {
-    const { remainingDepth, idx } = this.props;
+  return (
+    <div>
+      Text {stringId}:<br />
+      <textarea value={text} />
+      {children}
+    </div>
+  )
+}
+TextDisplay.displayName = 'TextDisplay'
 
-    if (remainingDepth > 0) {
-      let renderedChild = (
+const Slice = ({ remainingDepth, idx }) => {
+  if (remainingDepth > 0) {
+    let renderedChild = (
+      <div>
+        {idx}.{remainingDepth}
         <div>
-          {idx}.{remainingDepth}
-          <div>
-            <Slice idx={idx} remainingDepth={remainingDepth - 1} />
-          </div>
+          <Slice idx={idx} remainingDepth={remainingDepth - 1} />
         </div>
-      );
+      </div>
+    )
 
-      if (remainingDepth % TEXT_INPUT_MOD === 0) {
-        renderedChild = (
-          <ConnectedTextDisplay
-            idx={idx}
-            inputId={remainingDepth / TEXT_INPUT_MOD}
-          >
-            {renderedChild}
-          </ConnectedTextDisplay>
-        );
-      }
-
-      return renderedChild;
+    if (remainingDepth % TEXT_INPUT_MOD === 0) {
+      renderedChild = (
+        <TextDisplay idx={idx} inputId={remainingDepth / TEXT_INPUT_MOD}>
+          {renderedChild}
+        </TextDisplay>
+      )
     }
 
-    return <ConnectedCounter idx={idx} />;
+    return renderedChild
   }
-}
-Slice.displayName = "Slice";
 
-export default Slice;
-//export default connect(mapStateToProps, actions)(Slice);
+  return <Counter idx={idx} />
+}
+Slice.displayName = 'Slice'
+
+export default Slice

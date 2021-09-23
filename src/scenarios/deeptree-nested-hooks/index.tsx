@@ -23,7 +23,7 @@ const store = configureStore({
 
 store.dispatch(initialize({ numberOfCounters: c.NUMBER_OF_SLICES }))
 
-function clickButton(id) {
+function clickButton(id: string) {
   const element = document.getElementById(id)
 
   if (element) {
