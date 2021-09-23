@@ -46,6 +46,7 @@ export const renderApp = (App: React.ComponentType, store: Store) => {
 
   const domNode = document.getElementById('root')!
   if (process.env.CONCURRENT_RENDERING) {
+    console.log('Using React 18 `createRoot`...')
     const domNode = document.getElementById('root')!
     const root = ReactDOM.createRoot(domNode)
     root.render(rootElements)
