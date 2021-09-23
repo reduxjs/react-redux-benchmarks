@@ -713,6 +713,8 @@ function connect<
       try {
         actualChildProps = useSyncExternalStore(
           subscribeForReact,
+          actualChildPropsSelector,
+          // TODO Need a real getServerSnapshot here
           actualChildPropsSelector
         )
       } catch (err) {

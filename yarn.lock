@@ -88,8 +88,9 @@ __metadata:
     performance-mark-metadata: ^1.0.3
     prettier: latest
     puppeteer: ^1.7.0
-    react: 0.0.0-experimental-50263d327-20210914
-    react-dom: 0.0.0-experimental-50263d327-20210914
+    react: 0.0.0-experimental-5a0607278-20210922
+    react-dom: 0.0.0-experimental-5a0607278-20210922
+    react-redux: "file:.yalc/react-redux"
     react-redux-5.1.2: "npm:react-redux@5.1.2"
     react-redux-6.0.1: "npm:react-redux@6.0.1"
     react-redux-7.2.5: "npm:react-redux@7.2.5"
@@ -100,7 +101,7 @@ __metadata:
     seedrandom: ^3.0.5
     tracealyzer: ^0.9.3
     typescript: ^4.4.3
-    use-sync-external-store: experimental
+    use-sync-external-store: 0.0.0-experimental-5a0607278-20210922
     yargs: ^17.1.1
   languageName: unknown
   linkType: soft
@@ -1564,16 +1565,16 @@ __metadata:
   languageName: node
   linkType: hard
 
-"react-dom@npm:0.0.0-experimental-50263d327-20210914":
-  version: 0.0.0-experimental-50263d327-20210914
-  resolution: "react-dom@npm:0.0.0-experimental-50263d327-20210914"
+"react-dom@npm:0.0.0-experimental-5a0607278-20210922":
+  version: 0.0.0-experimental-5a0607278-20210922
+  resolution: "react-dom@npm:0.0.0-experimental-5a0607278-20210922"
   dependencies:
     loose-envify: ^1.1.0
     object-assign: ^4.1.1
-    scheduler: 0.0.0-experimental-50263d327-20210914
+    scheduler: 0.0.0-experimental-5a0607278-20210922
   peerDependencies:
-    react: 0.0.0-experimental-50263d327-20210914
-  checksum: a5c0ecae1054ff4dc26b80d444f23a4b95b749c506c85a7625584ef1f957d6dd25207e56320c6dad673874a882a250090864aa24875621d31e265bea7bcd4d60
+    react: 0.0.0-experimental-5a0607278-20210922
+  checksum: 35211ba0ad295ea22776f141ece83eec325b84ff706156a79427e0eaed9d18fdef693071defeb65ddcfbba1f42be4bca11c3cb52811d132efd1010ca7663f7bd
   languageName: node
   linkType: hard
 
@@ -1656,14 +1657,14 @@ __metadata:
 
 "react-redux-8.0.0-alpha.0@file:.yalc/react-redux::locator=%40reduxjs%2Freact-redux-benchmarks%40workspace%3A.":
   version: 8.0.0-alpha.0
-  resolution: "react-redux-8.0.0-alpha.0@file:.yalc/react-redux#.yalc/react-redux::hash=ddf515&locator=%40reduxjs%2Freact-redux-benchmarks%40workspace%3A."
+  resolution: "react-redux-8.0.0-alpha.0@file:.yalc/react-redux#.yalc/react-redux::hash=b2203b&locator=%40reduxjs%2Freact-redux-benchmarks%40workspace%3A."
   dependencies:
     "@babel/runtime": ^7.12.1
     hoist-non-react-statics: ^3.3.2
     loose-envify: ^1.4.0
     prop-types: ^15.7.2
     react-is: ^16.13.1
-    use-sync-external-store: 0.0.0-experimental-50263d327-20210914
+    use-sync-external-store: 0.0.0-experimental-5b57bc6e3-20210921
   peerDependencies:
     react: ^16.8.3 || ^17
   peerDependenciesMeta:
@@ -1671,17 +1672,38 @@ __metadata:
       optional: true
     react-native:
       optional: true
-  checksum: ea1532a0327e90d22c2635c64dd714b585420b4e31059db8205050b41934d174fc2cb3842fe09a85f9e48446494a05afe662d64bdee8e4dfece6dbe9bf9dddc9
+  checksum: 0fea14c96d2f363b012fe956acfdf7ce063e878b0fcf5c1021287f2d9634e93103620681e16219dff9bcc8b67405af9951eb000c68d748158189d7ef6a30adeb
   languageName: node
   linkType: hard
 
-"react@npm:0.0.0-experimental-50263d327-20210914":
-  version: 0.0.0-experimental-50263d327-20210914
-  resolution: "react@npm:0.0.0-experimental-50263d327-20210914"
+"react-redux@file:.yalc/react-redux::locator=%40reduxjs%2Freact-redux-benchmarks%40workspace%3A.":
+  version: 8.0.0-alpha.0
+  resolution: "react-redux@file:.yalc/react-redux#.yalc/react-redux::hash=de2317&locator=%40reduxjs%2Freact-redux-benchmarks%40workspace%3A."
+  dependencies:
+    "@babel/runtime": ^7.12.1
+    hoist-non-react-statics: ^3.3.2
+    loose-envify: ^1.4.0
+    prop-types: ^15.7.2
+    react-is: ^16.13.1
+    use-sync-external-store: 0.0.0-experimental-5b57bc6e3-20210921
+  peerDependencies:
+    react: ^16.8.3 || ^17
+  peerDependenciesMeta:
+    react-dom:
+      optional: true
+    react-native:
+      optional: true
+  checksum: 1c36baecc91f39a0d88f24c9eb41d8d7afe6e9eab295135dd7a678effd5052598c3b4a61bf52582ed37abe393161e2438e792545c3086f22572e34be965a86ce
+  languageName: node
+  linkType: hard
+
+"react@npm:0.0.0-experimental-5a0607278-20210922":
+  version: 0.0.0-experimental-5a0607278-20210922
+  resolution: "react@npm:0.0.0-experimental-5a0607278-20210922"
   dependencies:
     loose-envify: ^1.1.0
     object-assign: ^4.1.1
-  checksum: 8676ee18b489deb505ff7d1553d603ef9f1a71bb61816e60d8bb0ccc5fab3427e04dcab67e54c77b0d41e87c7ef86c721380d3a7578ab10c4121a08be7809a31
+  checksum: 0b80bc1106b4a97f0d44138a34aaebf624bbd4ab3d5354e8650c7d25c51a24346e46bc9576b6f039fae0bbbf866927b69aa5d923bdc4f3e8c3bc783cc1f63866
   languageName: node
   linkType: hard
 
@@ -1787,13 +1809,13 @@ __metadata:
   languageName: node
   linkType: hard
 
-"scheduler@npm:0.0.0-experimental-50263d327-20210914":
-  version: 0.0.0-experimental-50263d327-20210914
-  resolution: "scheduler@npm:0.0.0-experimental-50263d327-20210914"
+"scheduler@npm:0.0.0-experimental-5a0607278-20210922":
+  version: 0.0.0-experimental-5a0607278-20210922
+  resolution: "scheduler@npm:0.0.0-experimental-5a0607278-20210922"
   dependencies:
     loose-envify: ^1.1.0
     object-assign: ^4.1.1
-  checksum: 89742f5a7094d69ff0b890ff56d47662ccb698d01d2f5a8b8cc4bcf3dd3d57724d6d27c1d710244310464da91bdb7b740a9757a41bc23865aaa6cdf16f1cbed2
+  checksum: a15b9f3e68fae3692a762a7d22ba1e06fe276991e2517b0506e82ebf7faa8d794c9ab118710588d99e886bf86fdae4af8a8739bf88191d1b7602f42dd0542f77
   languageName: node
   linkType: hard
 
@@ -2007,16 +2029,16 @@ __metadata:
   languageName: node
   linkType: hard
 
-"use-sync-external-store@npm:0.0.0-experimental-50263d327-20210914":
-  version: 0.0.0-experimental-50263d327-20210914
-  resolution: "use-sync-external-store@npm:0.0.0-experimental-50263d327-20210914"
+"use-sync-external-store@npm:0.0.0-experimental-5a0607278-20210922":
+  version: 0.0.0-experimental-5a0607278-20210922
+  resolution: "use-sync-external-store@npm:0.0.0-experimental-5a0607278-20210922"
   peerDependencies:
-    react: 0.0.0-experimental-50263d327-20210914
-  checksum: df5c67f9d616eec9cd50cfdfb605e0106f9e72d241614249cff706e2f6c9061f252c54a1df090fe9fce89ea6f173157f36f4327acc2b2c6143b83079883c8730
+    react: 0.0.0-experimental-5a0607278-20210922
+  checksum: 73980b273500ef3f24b1873eb26c7a4e2c66f5b73b387e58365b212fa5eea62ec8600796272d145b0655b65d48531c63ac3749d9e98b8017553899361ac7a2d2
   languageName: node
   linkType: hard
 
-"use-sync-external-store@npm:experimental":
+"use-sync-external-store@npm:0.0.0-experimental-5b57bc6e3-20210921":
   version: 0.0.0-experimental-5b57bc6e3-20210921
   resolution: "use-sync-external-store@npm:0.0.0-experimental-5b57bc6e3-20210921"
   peerDependencies:

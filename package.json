@@ -36,8 +36,9 @@
     "glob": "^7.1.3",
     "performance-mark-metadata": "^1.0.3",
     "puppeteer": "^1.7.0",
-    "react": "0.0.0-experimental-50263d327-20210914",
-    "react-dom": "0.0.0-experimental-50263d327-20210914",
+    "react": "0.0.0-experimental-5a0607278-20210922",
+    "react-dom": "0.0.0-experimental-5a0607278-20210922",
+    "react-redux": "file:.yalc/react-redux",
     "react-redux-5.1.2": "npm:react-redux@5.1.2",
     "react-redux-6.0.1": "npm:react-redux@6.0.1",
     "react-redux-7.2.5": "npm:react-redux@7.2.5",
@@ -47,7 +48,7 @@
     "reselect": "^4.0.0",
     "seedrandom": "^3.0.5",
     "tracealyzer": "^0.9.3",
-    "use-sync-external-store": "experimental"
+    "use-sync-external-store": "0.0.0-experimental-5a0607278-20210922"
   },
   "devDependencies": {
     "@types/fs-extra": "^9.0.12",
