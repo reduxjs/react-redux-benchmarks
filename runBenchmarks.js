@@ -3,6 +3,7 @@
 
 const path = require('path')
 const puppeteer = require('puppeteer')
+const fs = require('fs')
 const Table = require('cli-table2')
 const _ = require('lodash')
 const glob = require('glob')
@@ -171,8 +172,8 @@ function calculateBenchmarkStats(
 
 async function runBenchmarks({ scenarios, versions, length, trace }) {
   console.log('Scenarios: ', scenarios)
-
-  const server = await serverUtils.runServer(9999, path.resolve('dist'))
+  const distFolder = path.resolve('dist')
+  const server = await serverUtils.runServer(9999, distFolder)
 
   for (let scenario of scenarios) {
     const versionPerfEntries = {}
@@ -184,6 +185,15 @@ async function runBenchmarks({ scenarios, versions, length, trace }) {
       const browser = await puppeteer.launch({
         //headless: false
       })
+
+      const folderPath = path.join(distFolder, version, scenario)
+
+      if (!fs.existsSync(folderPath)) {
+        console.log(
+          `Scenario ${scenario} does not exist for version ${version}, skipping`
+        )
+        continue
+      }
 
       const URL = `http://localhost:9999/${version}/${scenario}`
       try {

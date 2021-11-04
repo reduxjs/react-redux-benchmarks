@@ -1,0 +1,10 @@
+{
+  "version": "v1",
+  "packages": {
+    "react-redux": {
+      "signature": "ff0db988ba4013dfd771fdeeafc7f593",
+      "file": true,
+      "replaced": "^7.2.5"
+    }
+  }
+}
