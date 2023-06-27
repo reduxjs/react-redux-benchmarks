@@ -9,6 +9,7 @@ import Table from 'cli-table2'
 import _ from 'lodash'
 import glob from 'glob'
 import yargs from 'yargs/yargs'
+import chalk from 'chalk'
 
 import {
   capturePageStats,
@@ -52,6 +53,11 @@ const args = yargs(process.argv.slice(2))
     describe: 'Include Chrome perf tracing results',
     type: 'boolean',
     default: false,
+  })
+  .option('headless', {
+    describe: 'Run Chrome in headless mode (default: true)',
+    type: 'boolean',
+    default: true,
   })
   .help('h')
   .alias('h', 'help')
@@ -110,7 +116,7 @@ function printBenchmarkResults(benchmark, versionPerfEntries, trace) {
       table.push([
         version,
         fps.weightedFPS.toFixed(2),
-        `${mountTime.toFixed(1)}, ${averageUpdateTime.toFixed(1)}`,
+        `${mountTime?.toFixed(1)}, ${averageUpdateTime?.toFixed(1)}`,
         ...traceResults,
         fpsNumbers.toString(),
       ])
@@ -179,11 +185,19 @@ function calculateBenchmarkStats(
 
   const [mountEntry, ...updateEntries] = reactTimingEntries
 
-  const mountTime = mountEntry.actualTime
+  if (!mountEntry) {
+    console.error(
+      chalk.red(
+        'Error during component mounting, run the benchmark with "--headless false" to inspect the console for React errors'
+      )
+    )
+  }
+
+  const mountTime = mountEntry?.actualTime
 
   const averageUpdateTime =
-    updateEntries.reduce((sum, entry) => sum + entry.actualTime, 0) /
-      updateEntries.length || 1
+    updateEntries?.reduce((sum, entry) => sum + entry.actualTime, 0) /
+      updateEntries?.length || 1
 
   return { fps, profile: { categories }, mountTime, averageUpdateTime }
 }
@@ -193,11 +207,13 @@ async function runBenchmarks({
   versions,
   length,
   trace,
+  headless,
 }: {
   scenarios: string[]
   versions: string[]
   length: number
   trace: boolean
+  headless: boolean
 }) {
   console.log('Scenarios: ', scenarios)
   const distFolder = path.resolve('dist')
@@ -211,7 +227,7 @@ async function runBenchmarks({
     for (let version of versions) {
       console.log(`  React-Redux version: ${version}`)
       const browser = await playwright.chromium.launch({
-        headless: true,
+        headless,
       })
 
       const folderPath = path.join(distFolder, version, scenario)
