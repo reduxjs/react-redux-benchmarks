@@ -54,7 +54,9 @@
     "use-sync-external-store": "latest"
   },
   "devDependencies": {
+    "@types/express": "^4.17.17",
     "@types/fs-extra": "^9.0.12",
+    "@types/puppeteer": "^7.0.4",
     "@types/react": "^17.0.21",
     "@types/react-dom": "^17.0.9",
     "@types/yargs": "^17.0.2",
