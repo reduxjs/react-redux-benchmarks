@@ -6,7 +6,7 @@ import { performance } from 'perf_hooks'
 import express from 'express'
 import tracealyzer from 'tracealyzer'
 
-import type { Browser } from 'puppeteer'
+import type { Browser } from 'playwright'
 import { Server } from 'http'
 
 type TracealyticsResults = ReturnType<typeof tracealyzer>
@@ -76,6 +76,8 @@ export async function capturePageStats(
     window.performance.setResourceTimingBufferSize(1000000)
   })
 
+  const context = await browser.newContext()
+
   let fpsValues: ProcessedFPSEntry[]
   let traceMetrics: TracealyticsResults | undefined = undefined
 
@@ -86,7 +88,7 @@ export async function capturePageStats(
   if (trace) {
     page.on('load', async () => {
       await timeout(1000)
-      page.tracing.start({ path: traceFilename })
+      context.tracing.start({ name: traceFilename })
     })
   }
   await page.goto(url)
@@ -95,7 +97,7 @@ export async function capturePageStats(
 
   if (trace) {
     await timeout(delay + 1000)
-    await page.tracing.stop()
+    await context.tracing.stop()
     traceMetrics = tracealyzer(traceFilename)
   } else {
     await timeout(delay)

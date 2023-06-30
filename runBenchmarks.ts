@@ -3,6 +3,7 @@
 
 import path from 'path'
 import puppeteer from 'puppeteer'
+import playwright from 'playwright'
 import fs from 'fs'
 import Table from 'cli-table2'
 import _ from 'lodash'
@@ -209,8 +210,8 @@ async function runBenchmarks({
 
     for (let version of versions) {
       console.log(`  React-Redux version: ${version}`)
-      const browser = await puppeteer.launch({
-        headless: 'new',
+      const browser = await playwright.chromium.launch({
+        headless: true,
       })
 
       const folderPath = path.join(distFolder, version, scenario)
