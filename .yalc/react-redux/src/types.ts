@@ -1,39 +1,25 @@
-/* eslint-disable no-unused-vars */
-// TODO Ignoring all unused variables for now
-
-import {
+import type {
   ClassAttributes,
-  Component,
   ComponentClass,
   ComponentType,
-  StatelessComponent,
-  Context,
-  NamedExoticComponent,
+  FunctionComponent,
 } from 'react'
 
-import { Action, ActionCreator, AnyAction, Dispatch, Store } from 'redux'
+import type { Action, AnyAction, Dispatch } from 'redux'
 
-// import hoistNonReactStatics = require('hoist-non-react-statics');
 import type { NonReactStatics } from 'hoist-non-react-statics'
+
+import type { ConnectProps } from './components/connect'
+
+import type { UseSelectorOptions } from './hooks/useSelector'
 
 export type FixTypeLater = any
 
-export type EqualityFn<T> = (a: T | undefined, b: T | undefined) => boolean
+export type EqualityFn<T> = (a: T, b: T) => boolean
 
-/**
- * This interface can be augmented by users to add default types for the root state when
- * using `react-redux`.
- * Use module augmentation to append your own type definition in a your_custom_type.d.ts file.
- * https://www.typescriptlang.org/docs/handbook/declaration-merging.html#module-augmentation
- */
-// tslint:disable-next-line:no-empty-interface
-export interface DefaultRootState {}
+export type ExtendedEqualityFn<T, P> = (a: T, b: T, c: P, d: P) => boolean
 
 export type AnyIfEmpty<T extends object> = keyof T extends never ? any : T
-export type RootStateOrAny = AnyIfEmpty<DefaultRootState>
-
-// Omit taken from https://www.typescriptlang.org/docs/handbook/release-notes/typescript-2-8.html
-export type Omit<T, K extends keyof T> = Pick<T, Exclude<keyof T, K>>
 
 export type DistributiveOmit<T, K extends keyof T> = T extends unknown
   ? Omit<T, K>
@@ -42,10 +28,6 @@ export type DistributiveOmit<T, K extends keyof T> = T extends unknown
 export interface DispatchProp<A extends Action = AnyAction> {
   dispatch: Dispatch<A>
 }
-
-export type AdvancedComponentDecorator<TProps, TOwnProps> = (
-  component: ComponentType<TProps>
-) => ComponentType<TOwnProps>
 
 /**
  * A property P will be present if:
@@ -94,27 +76,50 @@ export type GetProps<C> = C extends ComponentType<infer P>
   : never
 
 // Applies LibraryManagedAttributes (proper handling of defaultProps
+// and propTypes).
+export type GetLibraryManagedProps<C> = JSX.LibraryManagedAttributes<
+  C,
+  GetProps<C>
+>
+
+// Applies LibraryManagedAttributes (proper handling of defaultProps
 // and propTypes), as well as defines WrappedComponent.
 export type ConnectedComponent<
   C extends ComponentType<any>,
   P
-> = ComponentType<P> &
+> = FunctionComponent<P> &
   NonReactStatics<C> & {
     WrappedComponent: C
   }
 
+export type ConnectPropsMaybeWithoutContext<TActualOwnProps> =
+  TActualOwnProps extends { context: any }
+    ? Omit<ConnectProps, 'context'>
+    : ConnectProps
+
+type Identity<T> = T
+export type Mapped<T> = Identity<{ [k in keyof T]: T[k] }>
+
 // Injects props and removes them from the prop requirements.
 // Will not pass through the injected props if they are passed in during
 // render. Also adds new prop requirements from TNeedsProps.
-// Uses distributive omit to preserve discriminated unions part of original prop type
+// Uses distributive omit to preserve discriminated unions part of original prop type.
+// Note> Most of the time TNeedsProps is empty, because the overloads in `Connect`
+// just pass in `{}`.  The real props we need come from the component.
 export type InferableComponentEnhancerWithProps<TInjectedProps, TNeedsProps> = <
   C extends ComponentType<Matching<TInjectedProps, GetProps<C>>>
 >(
   component: C
 ) => ConnectedComponent<
   C,
-  DistributiveOmit<GetProps<C>, keyof Shared<TInjectedProps, GetProps<C>>> &
-    TNeedsProps
+  Mapped<
+    DistributiveOmit<
+      GetLibraryManagedProps<C>,
+      keyof Shared<TInjectedProps, GetLibraryManagedProps<C>>
+    > &
+      TNeedsProps &
+      ConnectPropsMaybeWithoutContext<TNeedsProps & GetProps<C>>
+  >
 >
 
 // Injects props and removes them from the prop requirements.
@@ -147,116 +152,6 @@ export type ResolveThunks<TDispatchProps> = TDispatchProps extends {
     }
   : TDispatchProps
 
-// the conditional type is to support TypeScript 3.0, which does not support mapping over tuples and arrays;
-// once the typings are updated to at least TypeScript 3.1, a simple mapped type can replace this mess
-export type ResolveArrayThunks<TDispatchProps extends ReadonlyArray<any>> =
-  TDispatchProps extends [
-    infer A1,
-    infer A2,
-    infer A3,
-    infer A4,
-    infer A5,
-    infer A6,
-    infer A7,
-    infer A8,
-    infer A9
-  ]
-    ? [
-        HandleThunkActionCreator<A1>,
-        HandleThunkActionCreator<A2>,
-        HandleThunkActionCreator<A3>,
-        HandleThunkActionCreator<A4>,
-        HandleThunkActionCreator<A5>,
-        HandleThunkActionCreator<A6>,
-        HandleThunkActionCreator<A7>,
-        HandleThunkActionCreator<A8>,
-        HandleThunkActionCreator<A9>
-      ]
-    : TDispatchProps extends [
-        infer A1,
-        infer A2,
-        infer A3,
-        infer A4,
-        infer A5,
-        infer A6,
-        infer A7,
-        infer A8
-      ]
-    ? [
-        HandleThunkActionCreator<A1>,
-        HandleThunkActionCreator<A2>,
-        HandleThunkActionCreator<A3>,
-        HandleThunkActionCreator<A4>,
-        HandleThunkActionCreator<A5>,
-        HandleThunkActionCreator<A6>,
-        HandleThunkActionCreator<A7>,
-        HandleThunkActionCreator<A8>
-      ]
-    : TDispatchProps extends [
-        infer A1,
-        infer A2,
-        infer A3,
-        infer A4,
-        infer A5,
-        infer A6,
-        infer A7
-      ]
-    ? [
-        HandleThunkActionCreator<A1>,
-        HandleThunkActionCreator<A2>,
-        HandleThunkActionCreator<A3>,
-        HandleThunkActionCreator<A4>,
-        HandleThunkActionCreator<A5>,
-        HandleThunkActionCreator<A6>,
-        HandleThunkActionCreator<A7>
-      ]
-    : TDispatchProps extends [
-        infer A1,
-        infer A2,
-        infer A3,
-        infer A4,
-        infer A5,
-        infer A6
-      ]
-    ? [
-        HandleThunkActionCreator<A1>,
-        HandleThunkActionCreator<A2>,
-        HandleThunkActionCreator<A3>,
-        HandleThunkActionCreator<A4>,
-        HandleThunkActionCreator<A5>,
-        HandleThunkActionCreator<A6>
-      ]
-    : TDispatchProps extends [infer A1, infer A2, infer A3, infer A4, infer A5]
-    ? [
-        HandleThunkActionCreator<A1>,
-        HandleThunkActionCreator<A2>,
-        HandleThunkActionCreator<A3>,
-        HandleThunkActionCreator<A4>,
-        HandleThunkActionCreator<A5>
-      ]
-    : TDispatchProps extends [infer A1, infer A2, infer A3, infer A4]
-    ? [
-        HandleThunkActionCreator<A1>,
-        HandleThunkActionCreator<A2>,
-        HandleThunkActionCreator<A3>,
-        HandleThunkActionCreator<A4>
-      ]
-    : TDispatchProps extends [infer A1, infer A2, infer A3]
-    ? [
-        HandleThunkActionCreator<A1>,
-        HandleThunkActionCreator<A2>,
-        HandleThunkActionCreator<A3>
-      ]
-    : TDispatchProps extends [infer A1, infer A2]
-    ? [HandleThunkActionCreator<A1>, HandleThunkActionCreator<A2>]
-    : TDispatchProps extends [infer A1]
-    ? [HandleThunkActionCreator<A1>]
-    : TDispatchProps extends Array<infer A>
-    ? Array<HandleThunkActionCreator<A>>
-    : TDispatchProps extends ReadonlyArray<infer A>
-    ? ReadonlyArray<HandleThunkActionCreator<A>>
-    : never
-
 /**
  * This interface allows you to easily create a hook that is properly typed for your
  * store's root state.
@@ -272,6 +167,12 @@ export type ResolveArrayThunks<TDispatchProps extends ReadonlyArray<any>> =
 export interface TypedUseSelectorHook<TState> {
   <TSelected>(
     selector: (state: TState) => TSelected,
-    equalityFn?: EqualityFn<TSelected>
+    equalityFn?: EqualityFn<NoInfer<TSelected>>
   ): TSelected
+  <Selected = unknown>(
+    selector: (state: TState) => Selected,
+    options?: UseSelectorOptions<Selected>
+  ): Selected
 }
+
+export type NoInfer<T> = [T][T extends any ? 0 : never]

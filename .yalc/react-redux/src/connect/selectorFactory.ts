@@ -1,9 +1,10 @@
 import type { Dispatch, Action } from 'redux'
+import type { ComponentType } from 'react'
 import verifySubselectors from './verifySubselectors'
-import type { DefaultRootState, EqualityFn } from '../types'
+import type { EqualityFn, ExtendedEqualityFn } from '../types'
 
 export type SelectorFactory<S, TProps, TOwnProps, TFactoryOptions> = (
-  dispatch: Dispatch<Action>,
+  dispatch: Dispatch<Action<unknown>>,
   factoryOptions: TFactoryOptions
 ) => Selector<S, TProps, TOwnProps>
 
@@ -13,33 +14,24 @@ export type Selector<S, TProps, TOwnProps = null> = TOwnProps extends
   ? (state: S) => TProps
   : (state: S, ownProps: TOwnProps) => TProps
 
-export type MapStateToProps<
-  TStateProps,
-  TOwnProps,
-  State = DefaultRootState
-> = (state: State, ownProps: TOwnProps) => TStateProps
+export type MapStateToProps<TStateProps, TOwnProps, State> = (
+  state: State,
+  ownProps: TOwnProps
+) => TStateProps
 
-export type MapStateToPropsFactory<
-  TStateProps,
-  TOwnProps,
-  State = DefaultRootState
-> = (
+export type MapStateToPropsFactory<TStateProps, TOwnProps, State> = (
   initialState: State,
   ownProps: TOwnProps
 ) => MapStateToProps<TStateProps, TOwnProps, State>
 
-export type MapStateToPropsParam<
-  TStateProps,
-  TOwnProps,
-  State = DefaultRootState
-> =
+export type MapStateToPropsParam<TStateProps, TOwnProps, State> =
   | MapStateToPropsFactory<TStateProps, TOwnProps, State>
   | MapStateToProps<TStateProps, TOwnProps, State>
   | null
   | undefined
 
 export type MapDispatchToPropsFunction<TDispatchProps, TOwnProps> = (
-  dispatch: Dispatch<Action>,
+  dispatch: Dispatch<Action<unknown>>,
   ownProps: TOwnProps
 ) => TDispatchProps
 
@@ -48,7 +40,7 @@ export type MapDispatchToProps<TDispatchProps, TOwnProps> =
   | TDispatchProps
 
 export type MapDispatchToPropsFactory<TDispatchProps, TOwnProps> = (
-  dispatch: Dispatch<Action>,
+  dispatch: Dispatch<Action<unknown>>,
   ownProps: TOwnProps
 ) => MapDispatchToPropsFunction<TDispatchProps, TOwnProps>
 
@@ -66,14 +58,10 @@ export type MergeProps<TStateProps, TDispatchProps, TOwnProps, TMergedProps> = (
   ownProps: TOwnProps
 ) => TMergedProps
 
-interface PureSelectorFactoryComparisonOptions<
-  TOwnProps,
-  State = DefaultRootState
-> {
-  areStatesEqual: EqualityFn<State>
-  areOwnPropsEqual: EqualityFn<TOwnProps>
-  areStatePropsEqual: EqualityFn<unknown>
-  displayName: string
+interface PureSelectorFactoryComparisonOptions<TStateProps, TOwnProps, State> {
+  readonly areStatesEqual: ExtendedEqualityFn<State, TOwnProps>
+  readonly areStatePropsEqual: EqualityFn<TStateProps>
+  readonly areOwnPropsEqual: EqualityFn<TOwnProps>
 }
 
 export function pureFinalPropsSelectorFactory<
@@ -81,21 +69,17 @@ export function pureFinalPropsSelectorFactory<
   TOwnProps,
   TDispatchProps,
   TMergedProps,
-  State = DefaultRootState
+  State
 >(
-  mapStateToProps: MapStateToPropsParam<TStateProps, TOwnProps, State> & {
-    dependsOnOwnProps: boolean
-  },
-  mapDispatchToProps: MapDispatchToPropsParam<TDispatchProps, TOwnProps> & {
-    dependsOnOwnProps: boolean
-  },
+  mapStateToProps: WrappedMapStateToProps<TStateProps, TOwnProps, State>,
+  mapDispatchToProps: WrappedMapDispatchToProps<TDispatchProps, TOwnProps>,
   mergeProps: MergeProps<TStateProps, TDispatchProps, TOwnProps, TMergedProps>,
-  dispatch: Dispatch,
+  dispatch: Dispatch<Action<unknown>>,
   {
     areStatesEqual,
     areOwnPropsEqual,
     areStatePropsEqual,
-  }: PureSelectorFactoryComparisonOptions<TOwnProps, State>
+  }: PureSelectorFactoryComparisonOptions<TStateProps, TOwnProps, State>
 ) {
   let hasRunAtLeastOnce = false
   let state: State
@@ -107,21 +91,17 @@ export function pureFinalPropsSelectorFactory<
   function handleFirstCall(firstState: State, firstOwnProps: TOwnProps) {
     state = firstState
     ownProps = firstOwnProps
-    // @ts-ignore
-    stateProps = mapStateToProps!(state, ownProps)
-    // @ts-ignore
-    dispatchProps = mapDispatchToProps!(dispatch, ownProps)
+    stateProps = mapStateToProps(state, ownProps)
+    dispatchProps = mapDispatchToProps(dispatch, ownProps)
     mergedProps = mergeProps(stateProps, dispatchProps, ownProps)
     hasRunAtLeastOnce = true
     return mergedProps
   }
 
   function handleNewPropsAndNewState() {
-    // @ts-ignore
-    stateProps = mapStateToProps!(state, ownProps)
+    stateProps = mapStateToProps(state, ownProps)
 
-    if (mapDispatchToProps!.dependsOnOwnProps)
-      // @ts-ignore
+    if (mapDispatchToProps.dependsOnOwnProps)
       dispatchProps = mapDispatchToProps(dispatch, ownProps)
 
     mergedProps = mergeProps(stateProps, dispatchProps, ownProps)
@@ -129,12 +109,10 @@ export function pureFinalPropsSelectorFactory<
   }
 
   function handleNewProps() {
-    if (mapStateToProps!.dependsOnOwnProps)
-      // @ts-ignore
-      stateProps = mapStateToProps!(state, ownProps)
+    if (mapStateToProps.dependsOnOwnProps)
+      stateProps = mapStateToProps(state, ownProps)
 
     if (mapDispatchToProps.dependsOnOwnProps)
-      // @ts-ignore
       dispatchProps = mapDispatchToProps(dispatch, ownProps)
 
     mergedProps = mergeProps(stateProps, dispatchProps, ownProps)
@@ -144,7 +122,6 @@ export function pureFinalPropsSelectorFactory<
   function handleNewState() {
     const nextStateProps = mapStateToProps(state, ownProps)
     const statePropsChanged = !areStatePropsEqual(nextStateProps, stateProps)
-    // @ts-ignore
     stateProps = nextStateProps
 
     if (statePropsChanged)
@@ -155,7 +132,12 @@ export function pureFinalPropsSelectorFactory<
 
   function handleSubsequentCalls(nextState: State, nextOwnProps: TOwnProps) {
     const propsChanged = !areOwnPropsEqual(nextOwnProps, ownProps)
-    const stateChanged = !areStatesEqual(nextState, state)
+    const stateChanged = !areStatesEqual(
+      nextState,
+      state,
+      nextOwnProps,
+      ownProps
+    )
     state = nextState
     ownProps = nextOwnProps
 
@@ -175,24 +157,43 @@ export function pureFinalPropsSelectorFactory<
   }
 }
 
+interface WrappedMapStateToProps<TStateProps, TOwnProps, State> {
+  (state: State, ownProps: TOwnProps): TStateProps
+  readonly dependsOnOwnProps: boolean
+}
+
+interface WrappedMapDispatchToProps<TDispatchProps, TOwnProps> {
+  (dispatch: Dispatch<Action<unknown>>, ownProps: TOwnProps): TDispatchProps
+  readonly dependsOnOwnProps: boolean
+}
+
+export interface InitOptions<TStateProps, TOwnProps, TMergedProps, State>
+  extends PureSelectorFactoryComparisonOptions<TStateProps, TOwnProps, State> {
+  readonly shouldHandleStateChanges: boolean
+  readonly displayName: string
+  readonly wrappedComponentName: string
+  readonly WrappedComponent: ComponentType<TOwnProps>
+  readonly areMergedPropsEqual: EqualityFn<TMergedProps>
+}
+
 export interface SelectorFactoryOptions<
   TStateProps,
   TOwnProps,
   TDispatchProps,
   TMergedProps,
-  State = DefaultRootState
-> extends PureSelectorFactoryComparisonOptions<TOwnProps, State> {
-  initMapStateToProps: (
-    dispatch: Dispatch,
-    options: PureSelectorFactoryComparisonOptions<TOwnProps, State>
-  ) => MapStateToPropsParam<TStateProps, TOwnProps, State>
-  initMapDispatchToProps: (
-    dispatch: Dispatch,
-    options: PureSelectorFactoryComparisonOptions<TOwnProps, State>
-  ) => MapDispatchToPropsParam<TDispatchProps, TOwnProps>
-  initMergeProps: (
-    dispatch: Dispatch,
-    options: PureSelectorFactoryComparisonOptions<TOwnProps, State>
+  State
+> extends InitOptions<TStateProps, TOwnProps, TMergedProps, State> {
+  readonly initMapStateToProps: (
+    dispatch: Dispatch<Action<unknown>>,
+    options: InitOptions<TStateProps, TOwnProps, TMergedProps, State>
+  ) => WrappedMapStateToProps<TStateProps, TOwnProps, State>
+  readonly initMapDispatchToProps: (
+    dispatch: Dispatch<Action<unknown>>,
+    options: InitOptions<TStateProps, TOwnProps, TMergedProps, State>
+  ) => WrappedMapDispatchToProps<TDispatchProps, TOwnProps>
+  readonly initMergeProps: (
+    dispatch: Dispatch<Action<unknown>>,
+    options: InitOptions<TStateProps, TOwnProps, TMergedProps, State>
   ) => MergeProps<TStateProps, TDispatchProps, TOwnProps, TMergedProps>
 }
 
@@ -207,9 +208,9 @@ export default function finalPropsSelectorFactory<
   TOwnProps,
   TDispatchProps,
   TMergedProps,
-  State = DefaultRootState
+  State
 >(
-  dispatch: Dispatch<Action>,
+  dispatch: Dispatch<Action<unknown>>,
   {
     initMapStateToProps,
     initMapDispatchToProps,
@@ -231,14 +232,11 @@ export default function finalPropsSelectorFactory<
     verifySubselectors(mapStateToProps, mapDispatchToProps, mergeProps)
   }
 
-  const selectorFactory = pureFinalPropsSelectorFactory
-
-  return selectorFactory(
-    // @ts-ignore
-    mapStateToProps!,
-    mapDispatchToProps,
-    mergeProps,
-    dispatch,
-    options
-  )
+  return pureFinalPropsSelectorFactory<
+    TStateProps,
+    TOwnProps,
+    TDispatchProps,
+    TMergedProps,
+    State
+  >(mapStateToProps, mapDispatchToProps, mergeProps, dispatch, options)
 }

@@ -45,6 +45,7 @@
     "react-redux-6.0.1": "npm:react-redux@6.0.1",
     "react-redux-7.2.5": "npm:react-redux@7.2.5",
     "react-redux-8.1.0": "npm:react-redux@8.1.0",
+    "react-redux-8.1.0-autotracking": "file:.yalc/react-redux",
     "recursive-copy": "^2.0.9",
     "redux": "^4.1.1",
     "reselect": "^4.0.0",

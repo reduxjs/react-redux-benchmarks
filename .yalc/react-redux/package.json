@@ -1,6 +1,6 @@
 {
   "name": "react-redux",
-  "version": "8.0.0-alpha.0",
+  "version": "8.1.1",
   "description": "Official React bindings for Redux",
   "keywords": [
     "react",
@@ -31,39 +31,45 @@
     "build": "yarn build:types && yarn build:commonjs && yarn build:es && yarn build:umd && yarn build:umd:min",
     "clean": "rimraf lib dist es coverage",
     "api-types": "api-extractor run --local",
-    "format": "prettier --write \"{src,test}/**/*.{js,ts}\" \"docs/**/*.md\"",
-    "lint": "eslint src --ext ts,js test/utils test/components test/hooks",
+    "format": "prettier --write \"{src,test}/**/*.{js,ts,tsx}\" \"docs/**/*.md\"",
+    "lint": "eslint src --ext ts,tsx,js test/utils test/components test/hooks",
     "pretest": "yarn lint",
     "test": "jest",
-    "type-tests": "yarn tsc -p test/typetests",
+    "type-tests": "yarn tsc -p test/typetests/tsconfig.json",
     "coverage": "codecov"
   },
-  "workspaces": [
-    "website"
-  ],
   "peerDependencies": {
-    "react": "^16.8.3 || ^17"
+    "@types/react": "^16.8 || ^17.0 || ^18.0",
+    "@types/react-dom": "^16.8 || ^17.0 || ^18.0",
+    "react": "^16.8 || ^17.0 || ^18.0",
+    "react-dom": "^16.8 || ^17.0 || ^18.0",
+    "react-native": ">=0.59",
+    "redux": "^4 || ^5.0.0-beta.0"
   },
   "peerDependenciesMeta": {
+    "@types/react": {
+      "optional": true
+    },
+    "@types/react-dom": {
+      "optional": true
+    },
     "react-dom": {
       "optional": true
     },
     "react-native": {
       "optional": true
+    },
+    "redux": {
+      "optional": true
     }
   },
   "dependencies": {
     "@babel/runtime": "^7.12.1",
+    "@types/hoist-non-react-statics": "^3.3.1",
+    "@types/use-sync-external-store": "^0.0.3",
     "hoist-non-react-statics": "^3.3.2",
-    "loose-envify": "^1.4.0",
-    "prop-types": "^15.7.2",
-    "react-is": "^16.13.1",
-    "use-sync-external-store": "0.0.0-experimental-5b57bc6e3-20210921"
+    "react-is": "^18.0.0",
+    "use-sync-external-store": "^1.0.0"
   },
-  "browserify": {
-    "transform": [
-      "loose-envify"
-    ]
-  },
-  "yalcSig": "ff0db988ba4013dfd771fdeeafc7f593"
+  "yalcSig": "ea764a3365bc9f3c88f6e77bbb637f94"
 }

@@ -1,6 +1,11 @@
 import Provider from './components/Provider'
 import type { ProviderProps } from './components/Provider'
-import connect, { ConnectProps, ConnectedProps } from './components/connect'
+import connect from './components/connect'
+import type {
+  Connect,
+  ConnectProps,
+  ConnectedProps,
+} from './components/connect'
 import type {
   SelectorFactory,
   Selector,
@@ -22,7 +27,7 @@ import { useSelector, createSelectorHook } from './hooks/useSelector'
 import { useStore, createStoreHook } from './hooks/useStore'
 
 import shallowEqual from './utils/shallowEqual'
-import type { Subscription } from '../src/utils/Subscription'
+import type { Subscription } from './utils/Subscription'
 
 export * from './types'
 export type {
@@ -32,6 +37,7 @@ export type {
   MapStateToProps,
   MapStateToPropsFactory,
   MapStateToPropsParam,
+  Connect,
   ConnectProps,
   ConnectedProps,
   MapDispatchToPropsFunction,
