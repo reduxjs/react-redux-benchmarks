@@ -73,8 +73,7 @@ export async function capturePageStats(
 ) {
   const page = await browser.newPage()
   await page.evaluate(() => {
-    //@ts-ignore
-    performance.setResourceTimingBufferSize(1000000)
+    window.performance.setResourceTimingBufferSize(1000000)
   })
 
   let fpsValues: ProcessedFPSEntry[]

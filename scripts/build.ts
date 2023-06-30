@@ -16,7 +16,7 @@ const args = yargs(process.argv.slice(2)).options('concurrent', {
   alias: 'c',
   describe: "Use React 18's `createRoot` rendering",
   type: 'boolean',
-  default: false,
+  default: true,
 })
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms))

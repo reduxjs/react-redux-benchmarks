@@ -210,7 +210,7 @@ async function runBenchmarks({
     for (let version of versions) {
       console.log(`  React-Redux version: ${version}`)
       const browser = await puppeteer.launch({
-        //headless: false
+        headless: 'new',
       })
 
       const folderPath = path.join(distFolder, version, scenario)
