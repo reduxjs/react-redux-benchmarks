@@ -1,17 +1,24 @@
 /* eslint no-console: 0 */
 'use strict'
 
-const path = require('path')
-const puppeteer = require('puppeteer')
-const fs = require('fs')
-const Table = require('cli-table2')
-const _ = require('lodash')
-const glob = require('glob')
-const yargs = require('yargs/yargs')
+import path from 'path'
+import puppeteer from 'puppeteer'
+import playwright from 'playwright'
+import fs from 'fs'
+import Table from 'cli-table2'
+import _ from 'lodash'
+import glob from 'glob'
+import yargs from 'yargs/yargs'
 
-const serverUtils = require('./utils/server.js')
+import {
+  capturePageStats,
+  ProcessedFPSEntry,
+  runServer,
+  PageStatsResult,
+  RenderResult,
+} from './utils/server'
 
-const readFolderNames = (searchDir) => {
+const readFolderNames = (searchDir: string) => {
   return glob.sync('*/', { cwd: searchDir }).map((s) => s.replace('/', ''))
 }
 
@@ -51,26 +58,27 @@ const args = yargs(process.argv.slice(2))
 
 // Given an array of items such as ["a", "b", "c", "d"], return the pairwise entries
 // in the form [ ["a","b"], ["b","c"], ["c","d"] ]
-function pairwise(list) {
+function pairwise<T>(list: T[]): [T, T][] {
   // Create a new list offset by 1
-  var allButFirst = _.rest(list)
+  // @ts-ignore
+  const allButFirst: T[] = _.rest(list)
   // Pair up entries at each index
-  var zipped = _.zip(list, allButFirst)
+  const zipped = _.zip(list, allButFirst)
   // Remove last entry, as there's a mismatch from the offset
-  var pairwiseEntries = _.initial(zipped)
+  const pairwiseEntries = _.initial(zipped) as [T, T][]
   return pairwiseEntries
 }
 
 function printBenchmarkResults(benchmark, versionPerfEntries, trace) {
   console.log(`\nResults for benchmark ${benchmark}:`)
 
-  let traceCategories = []
+  let traceCategories: string[] = []
 
   if (trace) {
     traceCategories = ['Scripting', 'Rendering', 'Painting']
   }
 
-  const table = new Table({
+  const table: any = new Table({
     head: [
       'Version',
       'Avg FPS',
@@ -87,7 +95,7 @@ function printBenchmarkResults(benchmark, versionPerfEntries, trace) {
 
       const { fps, profile, mountTime, averageUpdateTime } = versionResults
 
-      let traceResults = []
+      let traceResults: number[] = []
 
       if (trace) {
         traceResults = [
@@ -112,10 +120,15 @@ function printBenchmarkResults(benchmark, versionPerfEntries, trace) {
 }
 
 function calculateBenchmarkStats(
-  fpsRunResults,
-  categories,
+  fpsRunResults: {
+    fpsValues: ProcessedFPSEntry[]
+    start: number
+    end: number
+    reactTimingEntries: RenderResult[]
+  },
+  categories: string[],
   traceRunResults,
-  trace
+  trace: boolean
 ) {
   const { fpsValues, start, end } = fpsRunResults
 
@@ -138,7 +151,7 @@ function calculateBenchmarkStats(
     const duration = second.timestamp - first.timestamp
     const durationSeconds = duration / 1000.0
 
-    return { FPS: first.FPS, durationSeconds }
+    return { FPS: first.FPS, durationSeconds, weightedFPS: 0 }
   })
 
   const sums = fpsValuesWithDurations.reduce(
@@ -146,11 +159,16 @@ function calculateBenchmarkStats(
       const weightedFPS = current.FPS * current.durationSeconds
 
       return {
+        FPS: current.FPS,
         weightedFPS: prev.weightedFPS + weightedFPS,
         durationSeconds: prev.durationSeconds + current.durationSeconds,
       }
     },
-    { FPS: 0, weightedFPS: 0, durationSeconds: 0 }
+    { FPS: 0, weightedFPS: 0, durationSeconds: 0 } as {
+      FPS: number
+      weightedFPS: number
+      durationSeconds: number
+    }
   )
 
   const weightedFPS = sums.weightedFPS / sums.durationSeconds
@@ -170,10 +188,20 @@ function calculateBenchmarkStats(
   return { fps, profile: { categories }, mountTime, averageUpdateTime }
 }
 
-async function runBenchmarks({ scenarios, versions, length, trace }) {
+async function runBenchmarks({
+  scenarios,
+  versions,
+  length,
+  trace,
+}: {
+  scenarios: string[]
+  versions: string[]
+  length: number
+  trace: boolean
+}) {
   console.log('Scenarios: ', scenarios)
   const distFolder = path.resolve('dist')
-  const server = await serverUtils.runServer(9999, distFolder)
+  const server = await runServer(9999, distFolder)
 
   for (let scenario of scenarios) {
     const versionPerfEntries = {}
@@ -182,8 +210,8 @@ async function runBenchmarks({ scenarios, versions, length, trace }) {
 
     for (let version of versions) {
       console.log(`  React-Redux version: ${version}`)
-      const browser = await puppeteer.launch({
-        //headless: false
+      const browser = await playwright.chromium.launch({
+        headless: true,
       })
 
       const folderPath = path.join(distFolder, version, scenario)
@@ -198,14 +226,15 @@ async function runBenchmarks({ scenarios, versions, length, trace }) {
       const URL = `http://localhost:9999/${version}/${scenario}`
       try {
         console.log(`    Checking max FPS... (${length} seconds)`)
-        const fpsRunResults = await serverUtils.capturePageStats(
+        const fpsRunResults = await capturePageStats(
           browser,
           URL,
           null,
           length * 1000
         )
 
-        let traceRunResults, categories
+        let traceRunResults: PageStatsResult | undefined
+        let categories: string[] = []
 
         if (trace) {
           console.log(`    Running trace...    (${length} seconds)`)
@@ -214,7 +243,7 @@ async function runBenchmarks({ scenarios, versions, length, trace }) {
             'runs',
             `trace-${scenario}-${version}.json`
           )
-          traceRunResults = await serverUtils.capturePageStats(
+          traceRunResults = await capturePageStats(
             browser,
             URL,
             traceFilename,
@@ -242,4 +271,5 @@ async function runBenchmarks({ scenarios, versions, length, trace }) {
   process.exit(0)
 }
 
+// @ts-ignore
 runBenchmarks(args.argv)
