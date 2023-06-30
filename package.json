@@ -4,8 +4,8 @@
   "description": "benchmark suite and runner for react-redux",
   "main": "index.js",
   "scripts": {
-    "start": "node ./runBenchmarks.js",
-    "format": "prettier --write \"sources/**/src/*.{js,jsx}\" *.js",
+    "start": "tsx ./runBenchmarks.ts",
+    "format": "prettier --write \"sources/**/src/*.{js,jsx,ts,tsx}\" *.js",
     "build": "node scripts/cli.js"
   },
   "repository": {
