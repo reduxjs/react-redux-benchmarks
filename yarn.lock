@@ -364,7 +364,7 @@ __metadata:
     react-redux-5.1.2: "npm:react-redux@5.1.2"
     react-redux-6.0.1: "npm:react-redux@6.0.1"
     react-redux-7.2.5: "npm:react-redux@7.2.5"
-    react-redux-8.0.0-alpha.0: "file:.yalc/react-redux"
+    react-redux-8.1.0: "npm:react-redux@8.1.0"
     recursive-copy: ^2.0.9
     redux: ^4.1.1
     reselect: ^4.0.0
@@ -3798,24 +3798,38 @@ __metadata:
   languageName: node
   linkType: hard
 
-"react-redux-8.0.0-alpha.0@file:.yalc/react-redux::locator=%40reduxjs%2Freact-redux-benchmarks%40workspace%3A.":
-  version: 8.0.0-alpha.0
-  resolution: "react-redux-8.0.0-alpha.0@file:.yalc/react-redux#.yalc/react-redux::hash=c83a40&locator=%40reduxjs%2Freact-redux-benchmarks%40workspace%3A."
+"react-redux-8.1.0@npm:react-redux@8.1.0":
+  version: 8.1.0
+  resolution: "react-redux@npm:8.1.0"
   dependencies:
     "@babel/runtime": ^7.12.1
+    "@types/hoist-non-react-statics": ^3.3.1
+    "@types/use-sync-external-store": ^0.0.3
     hoist-non-react-statics: ^3.3.2
-    loose-envify: ^1.4.0
-    prop-types: ^15.7.2
-    react-is: ^16.13.1
-    use-sync-external-store: 0.0.0-experimental-5b57bc6e3-20210921
+    react-is: ^18.0.0
+    use-sync-external-store: ^1.0.0
   peerDependencies:
-    react: ^16.8.3 || ^17
+    "@reduxjs/toolkit": ^1 || ^2.0.0-beta.0
+    "@types/react": ^16.8 || ^17.0 || ^18.0
+    "@types/react-dom": ^16.8 || ^17.0 || ^18.0
+    react: ^16.8 || ^17.0 || ^18.0
+    react-dom: ^16.8 || ^17.0 || ^18.0
+    react-native: ">=0.59"
+    redux: ^4 || ^5.0.0-beta.0
   peerDependenciesMeta:
+    "@reduxjs/toolkit":
+      optional: true
+    "@types/react":
+      optional: true
+    "@types/react-dom":
+      optional: true
     react-dom:
       optional: true
     react-native:
       optional: true
-  checksum: 053951b4ee87bd48f590b0e5919e985c2b705f9bf185d5a88ce528916b26c3f9a175619651e1cbd5524f386c52ad528224ae5d1ab7c0c1ef1511c8f63d1d2d15
+    redux:
+      optional: true
+  checksum: a6b9a07b056677b75596f3eeb56816c1cd611fc52e09ff03e9538cd050223c4f0187f9572b703c1b1d648ad115c5753894f8c709d0f58278e5652026963bf9d6
   languageName: node
   linkType: hard
 
@@ -4624,15 +4638,6 @@ __metadata:
   version: 1.0.0
   resolution: "unpipe@npm:1.0.0"
   checksum: 4fa18d8d8d977c55cb09715385c203197105e10a6d220087ec819f50cb68870f02942244f1017565484237f1f8c5d3cd413631b1ae104d3096f24fdfde1b4aa2
-  languageName: node
-  linkType: hard
-
-"use-sync-external-store@npm:0.0.0-experimental-5b57bc6e3-20210921":
-  version: 0.0.0-experimental-5b57bc6e3-20210921
-  resolution: "use-sync-external-store@npm:0.0.0-experimental-5b57bc6e3-20210921"
-  peerDependencies:
-    react: 0.0.0-experimental-5b57bc6e3-20210921
-  checksum: 44d3660851d7b907891db77d3fef779885079908224436ea8e015a136eab5e268a867eb7897e21154791d24472b4e2344c68cf3234349987d0aeff39af4dc503
   languageName: node
   linkType: hard
 
