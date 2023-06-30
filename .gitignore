@@ -80,6 +80,6 @@ typings/
 .idea/
 runs/
 dist/
-lib/
-es/
 build/
+
+!.yalc/react-redux/dist/

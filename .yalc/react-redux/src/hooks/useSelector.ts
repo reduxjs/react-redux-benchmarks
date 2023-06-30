@@ -1,50 +1,42 @@
-import { useRef, useMemo, useContext, useDebugValue } from 'react'
+import { useCallback, useDebugValue, useMemo, useRef } from 'react'
 
-import { useSyncExternalStoreExtra } from 'use-sync-external-store/extra'
-
-import { useReduxContext as useDefaultReduxContext } from './useReduxContext'
-import { createSubscription, Subscription } from '../utils/Subscription'
-import { useIsomorphicLayoutEffect } from '../utils/useIsomorphicLayoutEffect'
+import {
+  createReduxContextHook,
+  useReduxContext as useDefaultReduxContext,
+} from './useReduxContext'
 import { ReactReduxContext } from '../components/Context'
-import { AnyAction, Store } from 'redux'
-import { DefaultRootState, EqualityFn } from '../types'
+import type { EqualityFn, NoInfer } from '../types'
+import type { uSESWS } from '../utils/useSyncExternalStore'
+import { notInitialized } from '../utils/useSyncExternalStore'
+import { useIsomorphicLayoutEffect } from '../utils/useIsomorphicLayoutEffect'
+import { createCache } from '../utils/autotracking/autotracking'
+import { CacheWrapper } from '../utils/Subscription'
+
+export type CheckFrequency = 'never' | 'once' | 'always'
+
+export interface UseSelectorOptions<Selected = unknown> {
+  equalityFn?: EqualityFn<Selected>
+  stabilityCheck?: CheckFrequency
+  noopCheck?: CheckFrequency
+}
+
+export interface UseSelector {
+  <TState = unknown, Selected = unknown>(
+    selector: (state: TState) => Selected,
+    equalityFn?: EqualityFn<Selected>
+  ): Selected
+  <TState = unknown, Selected = unknown>(
+    selector: (state: TState) => Selected,
+    options?: UseSelectorOptions<Selected>
+  ): Selected
+}
+
+let useSyncExternalStoreWithSelector = notInitialized as uSESWS
+export const initializeUseSelector = (fn: uSESWS) => {
+  useSyncExternalStoreWithSelector = fn
+}
 
 const refEquality: EqualityFn<any> = (a, b) => a === b
-
-type TSelector<S, R> = (state: S) => R
-
-function useSelectorWithStoreAndSubscription<TStoreState, TSelectedState>(
-  selector: TSelector<TStoreState, TSelectedState>,
-  equalityFn: EqualityFn<TSelectedState>,
-  store: Store<TStoreState, AnyAction>,
-  contextSub: Subscription
-): TSelectedState {
-  const subscribe = useMemo(() => {
-    const subscription = createSubscription(store, contextSub)
-    const subscribe = (reactListener: () => void) => {
-      // React provides its own subscription handler - trigger that on dispatch
-      subscription.onStateChange = reactListener
-      subscription.trySubscribe()
-
-      return () => {
-        subscription.tryUnsubscribe()
-
-        subscription.onStateChange = null
-      }
-    }
-
-    return subscribe
-  }, [store, contextSub])
-
-  return useSyncExternalStoreExtra(
-    subscribe,
-    store.getState,
-    // TODO Need a server-side snapshot here
-    store.getState,
-    selector,
-    equalityFn
-  )
-}
 
 /**
  * Hook factory, which creates a `useSelector` hook bound to a given context.
@@ -52,21 +44,25 @@ function useSelectorWithStoreAndSubscription<TStoreState, TSelectedState>(
  * @param {React.Context} [context=ReactReduxContext] Context passed to your `<Provider>`.
  * @returns {Function} A `useSelector` hook bound to the specified context.
  */
-export function createSelectorHook(
-  context = ReactReduxContext
-): <TState = DefaultRootState, Selected = unknown>(
-  selector: (state: TState) => Selected,
-  equalityFn?: EqualityFn<Selected>
-) => Selected {
+export function createSelectorHook(context = ReactReduxContext): UseSelector {
   const useReduxContext =
     context === ReactReduxContext
       ? useDefaultReduxContext
-      : () => useContext(context)
+      : createReduxContextHook(context)
 
   return function useSelector<TState, Selected extends unknown>(
     selector: (state: TState) => Selected,
-    equalityFn: EqualityFn<Selected> = refEquality
+    equalityFnOrOptions:
+      | EqualityFn<NoInfer<Selected>>
+      | UseSelectorOptions<NoInfer<Selected>> = {}
   ): Selected {
+    const {
+      equalityFn = refEquality,
+      stabilityCheck = undefined,
+      noopCheck = undefined,
+    } = typeof equalityFnOrOptions === 'function'
+      ? { equalityFn: equalityFnOrOptions }
+      : equalityFnOrOptions
     if (process.env.NODE_ENV !== 'production') {
       if (!selector) {
         throw new Error(`You must pass a selector to useSelector`)
@@ -80,13 +76,117 @@ export function createSelectorHook(
         )
       }
     }
-    const { store, subscription: contextSub } = useReduxContext()!
 
-    const selectedState = useSelectorWithStoreAndSubscription(
-      selector,
-      equalityFn,
+    const {
       store,
-      contextSub
+      subscription,
+      getServerState,
+      stabilityCheck: globalStabilityCheck,
+      noopCheck: globalNoopCheck,
+      trackingNode,
+    } = useReduxContext()!
+
+    const firstRun = useRef(true)
+
+    const wrappedSelector = useCallback<typeof selector>(
+      {
+        [selector.name](state: TState) {
+          const selected = selector(state)
+          if (process.env.NODE_ENV !== 'production') {
+            const finalStabilityCheck =
+              typeof stabilityCheck === 'undefined'
+                ? globalStabilityCheck
+                : stabilityCheck
+            if (
+              finalStabilityCheck === 'always' ||
+              (finalStabilityCheck === 'once' && firstRun.current)
+            ) {
+              const toCompare = selector(state)
+              if (!equalityFn(selected, toCompare)) {
+                console.warn(
+                  'Selector ' +
+                    (selector.name || 'unknown') +
+                    ' returned a different result when called with the same parameters. This can lead to unnecessary rerenders.' +
+                    '\nSelectors that return a new reference (such as an object or an array) should be memoized: https://redux.js.org/usage/deriving-data-selectors#optimizing-selectors-with-memoization',
+                  {
+                    state,
+                    selected,
+                    selected2: toCompare,
+                  }
+                )
+              }
+            }
+            const finalNoopCheck =
+              typeof noopCheck === 'undefined' ? globalNoopCheck : noopCheck
+            if (
+              finalNoopCheck === 'always' ||
+              (finalNoopCheck === 'once' && firstRun.current)
+            ) {
+              // @ts-ignore
+              if (selected === state) {
+                console.warn(
+                  'Selector ' +
+                    (selector.name || 'unknown') +
+                    ' returned the root state when called. This can lead to unnecessary rerenders.' +
+                    '\nSelectors that return the entire state are almost certainly a mistake, as they will cause a rerender whenever *anything* in state changes.'
+                )
+              }
+            }
+            if (firstRun.current) firstRun.current = false
+          }
+          return selected
+        },
+      }[selector.name],
+      [selector, globalStabilityCheck, stabilityCheck]
+    )
+
+    const latestWrappedSelectorRef = useRef(wrappedSelector)
+
+    // console.log(
+    //   'Writing latest selector. Same reference? ',
+    //   wrappedSelector === latestWrappedSelectorRef.current
+    // )
+    latestWrappedSelectorRef.current = wrappedSelector
+
+    const cache = useMemo(() => {
+      //console.log('Recreating cache')
+      const cache = createCache(() => {
+        // console.log('Wrapper cache called: ', store.getState())
+        //return latestWrappedSelectorRef.current(trackingNode.proxy as TState)
+        return wrappedSelector(trackingNode.proxy as TState)
+      })
+      return cache
+    }, [trackingNode, wrappedSelector])
+
+    const cacheWrapper = useRef({ cache } as CacheWrapper)
+
+    useIsomorphicLayoutEffect(() => {
+      cacheWrapper.current.cache = cache
+    })
+
+    const subscribeToStore = useMemo(() => {
+      const subscribeToStore = (onStoreChange: () => void) => {
+        const wrappedOnStoreChange = () => {
+          // console.log('wrappedOnStoreChange')
+          return onStoreChange()
+        }
+        // console.log('Subscribing to store with tracking')
+        return subscription.addNestedSub(wrappedOnStoreChange, {
+          trigger: 'tracked',
+          cache: cacheWrapper.current,
+        })
+      }
+      return subscribeToStore
+    }, [subscription])
+
+    const selectedState = useSyncExternalStoreWithSelector(
+      //subscription.addNestedSub,
+      subscribeToStore,
+      store.getState,
+      //() => trackingNode.proxy as TState,
+      getServerState || store.getState,
+      cache.getValue,
+      equalityFn
     )
 
     useDebugValue(selectedState)
