@@ -2,7 +2,6 @@
 'use strict'
 
 import path from 'path'
-import puppeteer from 'puppeteer'
 import playwright from 'playwright'
 import fs from 'fs'
 import Table from 'cli-table2'
@@ -10,6 +9,7 @@ import _ from 'lodash'
 import glob from 'glob'
 import yargs from 'yargs/yargs'
 import chalk from 'chalk'
+import { devices as replayDevices } from '@replayio/playwright'
 
 import {
   capturePageStats,
@@ -58,6 +58,12 @@ const args = yargs(process.argv.slice(2))
     describe: 'Run Chrome in headless mode (default: true)',
     type: 'boolean',
     default: true,
+  })
+  .option('record', {
+    alias: 'r',
+    describe: 'Make a Replay recording of each benchmark run',
+    type: 'boolean',
+    default: false,
   })
   .help('h')
   .alias('h', 'help')
@@ -208,16 +214,22 @@ async function runBenchmarks({
   length,
   trace,
   headless,
+  record,
 }: {
   scenarios: string[]
   versions: string[]
   length: number
   trace: boolean
   headless: boolean
+  record: boolean
 }) {
   console.log('Scenarios: ', scenarios)
   const distFolder = path.resolve('dist')
   const server = await runServer(9999, distFolder)
+
+  const launchOptions: Partial<playwright.LaunchOptions> = record
+    ? replayDevices['Replay Chromium'].launchOptions
+    : {}
 
   for (let scenario of scenarios) {
     const versionPerfEntries = {}
@@ -226,8 +238,10 @@ async function runBenchmarks({
 
     for (let version of versions) {
       console.log(`  React-Redux version: ${version}`)
+
       const browser = await playwright.chromium.launch({
         headless,
+        ...launchOptions,
       })
 
       const folderPath = path.join(distFolder, version, scenario)
