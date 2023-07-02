@@ -215,7 +215,7 @@ export function updateNode<T extends Array<unknown> | Record<string, unknown>>(
     if (childValue === newChildValue) {
       continue
     } else if (typeof newChildValue === 'object' && newChildValue !== null) {
-      console.log('Updating node key: ', key)
+      // console.log('Updating node key: ', key)
       updateNode(childNode, newChildValue as Record<string, unknown>)
     } else {
       deleteNode(childNode)

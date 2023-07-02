@@ -7,11 +7,21 @@ const createStateSlice = (index: number) => {
   return createSlice({
     name: getSliceName(index),
     initialState: {
-      counter: 0,
+      deeply: {
+        nested: {
+          really: {
+            deeply: {
+              nested: {
+                counter: { value: 0 },
+              },
+            },
+          },
+        },
+      },
     },
     reducers: {
       increment(state) {
-        state.counter += 1
+        state.deeply.nested.really.deeply.nested.counter.value += 1
       },
     },
   })

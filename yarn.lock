@@ -3150,7 +3150,7 @@ __metadata:
 
 "react-redux-8.1.0-autotracking@file:.yalc/react-redux::locator=%40reduxjs%2Freact-redux-benchmarks%40workspace%3A.":
   version: 8.1.1
-  resolution: "react-redux-8.1.0-autotracking@file:.yalc/react-redux#.yalc/react-redux::hash=4f3dbd&locator=%40reduxjs%2Freact-redux-benchmarks%40workspace%3A."
+  resolution: "react-redux-8.1.0-autotracking@file:.yalc/react-redux#.yalc/react-redux::hash=91b594&locator=%40reduxjs%2Freact-redux-benchmarks%40workspace%3A."
   dependencies:
     "@babel/runtime": ^7.12.1
     "@types/hoist-non-react-statics": ^3.3.1
@@ -3176,7 +3176,7 @@ __metadata:
       optional: true
     redux:
       optional: true
-  checksum: 82c940becc5c6a0ef9d5e9cb559ed2289ae17e5cf7504cc9a8cf6e212aeed3e4ed02f62c1b4a03c11b9d80cdbaf5904fa9def7da37b4e3a5168b7d7a2b3aefb5
+  checksum: 441a089f1e04b6645949588a5552f909c1ccf2765a909ec84fe8e1e9adad3caa0dc74c670e85b8031de26b0f51c788bfb467eba1ea2d985fdce75f1c0f963d6f
   languageName: node
   linkType: hard
 

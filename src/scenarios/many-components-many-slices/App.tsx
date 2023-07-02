@@ -10,7 +10,10 @@ const createComponent = (index: number) => {
   const sliceName = getSliceName(index)
 
   return function Component() {
-    const counter = useSelector((state: RootState) => state[sliceName].counter)
+    const counter = useSelector(
+      (state: RootState) =>
+        state[sliceName].deeply.nested.really.deeply.nested.counter.value
+    )
 
     return <div>{counter}</div>
   }

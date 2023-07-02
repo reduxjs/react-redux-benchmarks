@@ -200,7 +200,7 @@ function updateNode(node, newValue) {
     if (childValue === newChildValue) {
       continue;
     } else if (typeof newChildValue === 'object' && newChildValue !== null) {
-      console.log('Updating node key: ', key);
+      // console.log('Updating node key: ', key)
       updateNode(childNode, newChildValue);
     } else {
       deleteNode(childNode);

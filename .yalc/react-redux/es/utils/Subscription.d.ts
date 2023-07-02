@@ -14,7 +14,10 @@ declare type Listener = {
 };
 declare function createListenerCollection(): {
     clear(): void;
-    notify(): void;
+    notify(): {
+        numCalled: number;
+        numSkipped: number;
+    };
     get(): Listener[];
     subscribe(callback: () => void, options?: AddNestedSubOptions): () => void;
 };
