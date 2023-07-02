@@ -1,1 +1,1 @@
-export const NUMBER_OF_COMPONENTS = 5000
+export const NUMBER_OF_COMPONENTS = 1000
