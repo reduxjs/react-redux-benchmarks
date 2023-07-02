@@ -2,7 +2,7 @@
   "version": "v1",
   "packages": {
     "react-redux": {
-      "signature": "ea764a3365bc9f3c88f6e77bbb637f94",
+      "signature": "b9f845048d76117633fd4e318d90540d",
       "file": true,
       "replaced": "^8.1.0"
     }

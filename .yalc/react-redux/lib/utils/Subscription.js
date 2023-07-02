@@ -19,6 +19,8 @@ function createListenerCollection() {
 
     notify() {
       //console.log('Notifying subscribers')
+      let numCalled = 0;
+      let numSkipped = 0;
       batch(() => {
         let listener = first;
 
@@ -31,8 +33,10 @@ function createListenerCollection() {
               //   'Calling subscriber due to recalc. Revision before: ',
               //   $REVISION
               // )
+              numCalled++;
               listener.callback(); //console.log('Revision after: ', $REVISION)
-            } else {// console.log(
+            } else {
+              numSkipped++; // console.log(
               //   'Skipping subscriber, no recalc: ',
               //   listener.selectorCache
               // )
@@ -44,6 +48,11 @@ function createListenerCollection() {
           listener = listener.next;
         }
       });
+      const result = {
+        numCalled,
+        numSkipped
+      };
+      return result;
     },
 
     get() {
@@ -115,6 +124,9 @@ const nullListeners = {
 function createSubscription(store, parentSub, trackingNode) {
   let unsubscribe;
   let listeners = nullListeners;
+  const updateNodeTimes = [];
+  const notifyTimes = [];
+  const resultCounts = [];
 
   function addNestedSub(listener, options = {
     trigger: 'always'
@@ -127,10 +139,28 @@ function createSubscription(store, parentSub, trackingNode) {
   function notifyNestedSubs() {
     if (store && trackingNode) {
       //console.log('Updating node in notifyNestedSubs')
+      const _start = performance.now();
+
       (0, _proxy.updateNode)(trackingNode, store.getState());
+
+      const _end = performance.now();
+
+      updateNodeTimes.push({
+        start: _start,
+        end: _end,
+        duration: _end - _start
+      });
     }
 
-    listeners.notify();
+    const start = performance.now();
+    const results = listeners.notify();
+    const end = performance.now();
+    notifyTimes.push({
+      start,
+      end,
+      duration: end - start
+    });
+    resultCounts.push(results);
   }
 
   function handleChangeWrapper() {

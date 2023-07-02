@@ -1894,7 +1894,7 @@
 	    if (childValue === newChildValue) {
 	      continue;
 	    } else if (typeof newChildValue === 'object' && newChildValue !== null) {
-	      console.log('Updating node key: ', key);
+	      // console.log('Updating node key: ', key)
 	      updateNode(childNode, newChildValue);
 	    } else {
 	      deleteNode(childNode);
@@ -1934,6 +1934,8 @@
 
 	    notify() {
 	      //console.log('Notifying subscribers')
+	      let numCalled = 0;
+	      let numSkipped = 0;
 	      batch(() => {
 	        let listener = first;
 
@@ -1946,7 +1948,13 @@
 	              //   'Calling subscriber due to recalc. Revision before: ',
 	              //   $REVISION
 	              // )
+	              numCalled++;
 	              listener.callback(); //console.log('Revision after: ', $REVISION)
+	            } else {
+	              numSkipped++; // console.log(
+	              //   'Skipping subscriber, no recalc: ',
+	              //   listener.selectorCache
+	              // )
 	            }
 	          } else {
 	            listener.callback();
@@ -1955,6 +1963,11 @@
 	          listener = listener.next;
 	        }
 	      });
+	      const result = {
+	        numCalled,
+	        numSkipped
+	      };
+	      return result;
 	    },
 
 	    get() {
@@ -2037,10 +2050,16 @@
 	  function notifyNestedSubs() {
 	    if (store && trackingNode) {
 	      //console.log('Updating node in notifyNestedSubs')
+	      performance.now();
+
 	      updateNode(trackingNode, store.getState());
+
+	      performance.now();
 	    }
 
+	    performance.now();
 	    listeners.notify();
+	    performance.now();
 	  }
 
 	  function handleChangeWrapper() {
