@@ -3,11 +3,12 @@ import type {
   ComponentClass,
   ComponentType,
   FunctionComponent,
+  JSX,
 } from 'react'
 
-import type { Action, AnyAction, Dispatch } from 'redux'
+import type { Action, UnknownAction, Dispatch } from 'redux'
 
-import type { NonReactStatics } from 'hoist-non-react-statics'
+import type { NonReactStatics } from './utils/hoistStatics'
 
 import type { ConnectProps } from './components/connect'
 
@@ -25,7 +26,7 @@ export type DistributiveOmit<T, K extends keyof T> = T extends unknown
   ? Omit<T, K>
   : never
 
-export interface DispatchProp<A extends Action = AnyAction> {
+export interface DispatchProp<A extends Action<string> = UnknownAction> {
   dispatch: Dispatch<A>
 }
 
@@ -69,11 +70,12 @@ export type Shared<InjectedProps, DecorationTargetProps> = {
 }
 
 // Infers prop type from component C
-export type GetProps<C> = C extends ComponentType<infer P>
-  ? C extends ComponentClass<P>
-    ? ClassAttributes<InstanceType<C>> & P
-    : P
-  : never
+export type GetProps<C> =
+  C extends ComponentType<infer P>
+    ? C extends ComponentClass<P>
+      ? ClassAttributes<InstanceType<C>> & P
+      : P
+    : never
 
 // Applies LibraryManagedAttributes (proper handling of defaultProps
 // and propTypes).
@@ -86,7 +88,7 @@ export type GetLibraryManagedProps<C> = JSX.LibraryManagedAttributes<
 // and propTypes), as well as defines WrappedComponent.
 export type ConnectedComponent<
   C extends ComponentType<any>,
-  P
+  P,
 > = FunctionComponent<P> &
   NonReactStatics<C> & {
     WrappedComponent: C
@@ -107,9 +109,9 @@ export type Mapped<T> = Identity<{ [k in keyof T]: T[k] }>
 // Note> Most of the time TNeedsProps is empty, because the overloads in `Connect`
 // just pass in `{}`.  The real props we need come from the component.
 export type InferableComponentEnhancerWithProps<TInjectedProps, TNeedsProps> = <
-  C extends ComponentType<Matching<TInjectedProps, GetProps<C>>>
+  C extends ComponentType<Matching<TInjectedProps, GetProps<C>>>,
 >(
-  component: C
+  component: C,
 ) => ConnectedComponent<
   C,
   Mapped<
@@ -129,7 +131,7 @@ export type InferableComponentEnhancer<TInjectedProps> =
   InferableComponentEnhancerWithProps<TInjectedProps, {}>
 
 export type InferThunkActionCreatorType<
-  TActionCreator extends (...args: any[]) => any
+  TActionCreator extends (...args: any[]) => any,
 > = TActionCreator extends (
   ...args: infer TParams
 ) => (...args: any[]) => infer TReturn
@@ -167,11 +169,11 @@ export type ResolveThunks<TDispatchProps> = TDispatchProps extends {
 export interface TypedUseSelectorHook<TState> {
   <TSelected>(
     selector: (state: TState) => TSelected,
-    equalityFn?: EqualityFn<NoInfer<TSelected>>
+    equalityFn?: EqualityFn<NoInfer<TSelected>>,
   ): TSelected
   <Selected = unknown>(
     selector: (state: TState) => Selected,
-    options?: UseSelectorOptions<Selected>
+    options?: UseSelectorOptions<Selected>,
   ): Selected
 }
 

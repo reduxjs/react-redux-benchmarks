@@ -1,8 +1,7 @@
 /* eslint-disable valid-jsdoc, @typescript-eslint/no-unused-vars */
-import hoistStatics from 'hoist-non-react-statics'
 import type { ComponentType } from 'react'
-import React, { useContext, useMemo, useRef } from 'react'
-import { isValidElementType, isContextConsumer } from 'react-is'
+import { React } from '../utils/react'
+import { isValidElementType, isContextConsumer } from '../utils/react-is'
 
 import type { Store } from 'redux'
 
@@ -31,6 +30,7 @@ import type { Subscription } from '../utils/Subscription'
 import { createSubscription } from '../utils/Subscription'
 import { useIsomorphicLayoutEffect } from '../utils/useIsomorphicLayoutEffect'
 import shallowEqual from '../utils/shallowEqual'
+import hoistStatics from '../utils/hoistStatics'
 import warning from '../utils/warning'
 
 import type {
@@ -38,14 +38,6 @@ import type {
   ReactReduxContextInstance,
 } from './Context'
 import { ReactReduxContext } from './Context'
-
-import type { uSES } from '../utils/useSyncExternalStore'
-import { notInitialized } from '../utils/useSyncExternalStore'
-
-let useSyncExternalStore = notInitialized as uSES
-export const initializeConnect = (fn: uSES) => {
-  useSyncExternalStore = fn
-}
 
 // Define some constant arrays just to avoid re-creating these
 const EMPTY_ARRAY: [unknown, number] = [null, 0]
@@ -70,7 +62,7 @@ type EffectFunc = (...args: any[]) => void | ReturnType<React.EffectCallback>
 function useIsomorphicLayoutEffectWithArgs(
   effectFunc: EffectFunc,
   effectArgs: any[],
-  dependencies?: React.DependencyList
+  dependencies?: React.DependencyList,
 ) {
   useIsomorphicLayoutEffect(() => effectFunc(...effectArgs), dependencies)
 }
@@ -83,7 +75,7 @@ function captureWrapperProps(
   wrapperProps: unknown,
   // actualChildProps: unknown,
   childPropsFromStoreUpdate: React.MutableRefObject<unknown>,
-  notifyNestedSubs: () => void
+  notifyNestedSubs: () => void,
 ) {
   // We want to capture the wrapper props and child props we used for later comparisons
   lastWrapperProps.current = wrapperProps
@@ -110,7 +102,7 @@ function subscribeUpdates(
   childPropsFromStoreUpdate: React.MutableRefObject<unknown>,
   notifyNestedSubs: () => void,
   // forceComponentUpdateDispatch: React.Dispatch<any>,
-  additionalSubscribeListener: () => void
+  additionalSubscribeListener: () => void,
 ) {
   // If we're not subscribed to the store, nothing to do here
   if (!shouldHandleStateChanges) return () => {}
@@ -136,7 +128,7 @@ function subscribeUpdates(
       // to determine what the child props should be
       newChildProps = childPropsSelector(
         latestStoreState,
-        lastWrapperProps.current
+        lastWrapperProps.current,
       )
     } catch (e) {
       error = e
@@ -230,7 +222,7 @@ export interface ConnectOptions<
   State = unknown,
   TStateProps = {},
   TOwnProps = {},
-  TMergedProps = {}
+  TMergedProps = {},
 > {
   forwardRef?: boolean
   context?: typeof ReactReduxContext
@@ -238,21 +230,21 @@ export interface ConnectOptions<
     nextState: State,
     prevState: State,
     nextOwnProps: TOwnProps,
-    prevOwnProps: TOwnProps
+    prevOwnProps: TOwnProps,
   ) => boolean
 
   areOwnPropsEqual?: (
     nextOwnProps: TOwnProps,
-    prevOwnProps: TOwnProps
+    prevOwnProps: TOwnProps,
   ) => boolean
 
   areStatePropsEqual?: (
     nextStateProps: TStateProps,
-    prevStateProps: TStateProps
+    prevStateProps: TStateProps,
   ) => boolean
   areMergedPropsEqual?: (
     nextMergedProps: TMergedProps,
-    prevMergedProps: TMergedProps
+    prevMergedProps: TMergedProps,
   ) => boolean
 }
 
@@ -281,19 +273,19 @@ export interface Connect<DefaultState = unknown> {
 
   /** mapState only */
   <TStateProps = {}, no_dispatch = {}, TOwnProps = {}, State = DefaultState>(
-    mapStateToProps: MapStateToPropsParam<TStateProps, TOwnProps, State>
+    mapStateToProps: MapStateToPropsParam<TStateProps, TOwnProps, State>,
   ): InferableComponentEnhancerWithProps<TStateProps & DispatchProp, TOwnProps>
 
   /** mapDispatch only (as a function) */
   <no_state = {}, TDispatchProps = {}, TOwnProps = {}>(
     mapStateToProps: null | undefined,
-    mapDispatchToProps: MapDispatchToPropsNonObject<TDispatchProps, TOwnProps>
+    mapDispatchToProps: MapDispatchToPropsNonObject<TDispatchProps, TOwnProps>,
   ): InferableComponentEnhancerWithProps<TDispatchProps, TOwnProps>
 
   /** mapDispatch only (as an object) */
   <no_state = {}, TDispatchProps = {}, TOwnProps = {}>(
     mapStateToProps: null | undefined,
-    mapDispatchToProps: MapDispatchToPropsParam<TDispatchProps, TOwnProps>
+    mapDispatchToProps: MapDispatchToPropsParam<TDispatchProps, TOwnProps>,
   ): InferableComponentEnhancerWithProps<
     ResolveThunks<TDispatchProps>,
     TOwnProps
@@ -302,7 +294,7 @@ export interface Connect<DefaultState = unknown> {
   /** mapState and mapDispatch (as a function)*/
   <TStateProps = {}, TDispatchProps = {}, TOwnProps = {}, State = DefaultState>(
     mapStateToProps: MapStateToPropsParam<TStateProps, TOwnProps, State>,
-    mapDispatchToProps: MapDispatchToPropsNonObject<TDispatchProps, TOwnProps>
+    mapDispatchToProps: MapDispatchToPropsNonObject<TDispatchProps, TOwnProps>,
   ): InferableComponentEnhancerWithProps<
     TStateProps & TDispatchProps,
     TOwnProps
@@ -311,13 +303,13 @@ export interface Connect<DefaultState = unknown> {
   /** mapState and mapDispatch (nullish) */
   <TStateProps = {}, TDispatchProps = {}, TOwnProps = {}, State = DefaultState>(
     mapStateToProps: MapStateToPropsParam<TStateProps, TOwnProps, State>,
-    mapDispatchToProps: null | undefined
+    mapDispatchToProps: null | undefined,
   ): InferableComponentEnhancerWithProps<TStateProps, TOwnProps>
 
   /** mapState and mapDispatch (as an object) */
   <TStateProps = {}, TDispatchProps = {}, TOwnProps = {}, State = DefaultState>(
     mapStateToProps: MapStateToPropsParam<TStateProps, TOwnProps, State>,
-    mapDispatchToProps: MapDispatchToPropsParam<TDispatchProps, TOwnProps>
+    mapDispatchToProps: MapDispatchToPropsParam<TDispatchProps, TOwnProps>,
   ): InferableComponentEnhancerWithProps<
     TStateProps & ResolveThunks<TDispatchProps>,
     TOwnProps
@@ -327,7 +319,7 @@ export interface Connect<DefaultState = unknown> {
   <no_state = {}, no_dispatch = {}, TOwnProps = {}, TMergedProps = {}>(
     mapStateToProps: null | undefined,
     mapDispatchToProps: null | undefined,
-    mergeProps: MergeProps<undefined, DispatchProp, TOwnProps, TMergedProps>
+    mergeProps: MergeProps<undefined, DispatchProp, TOwnProps, TMergedProps>,
   ): InferableComponentEnhancerWithProps<TMergedProps, TOwnProps>
 
   /** mapState and mergeProps */
@@ -336,18 +328,18 @@ export interface Connect<DefaultState = unknown> {
     no_dispatch = {},
     TOwnProps = {},
     TMergedProps = {},
-    State = DefaultState
+    State = DefaultState,
   >(
     mapStateToProps: MapStateToPropsParam<TStateProps, TOwnProps, State>,
     mapDispatchToProps: null | undefined,
-    mergeProps: MergeProps<TStateProps, DispatchProp, TOwnProps, TMergedProps>
+    mergeProps: MergeProps<TStateProps, DispatchProp, TOwnProps, TMergedProps>,
   ): InferableComponentEnhancerWithProps<TMergedProps, TOwnProps>
 
   /** mapDispatch (as a object) and mergeProps */
   <no_state = {}, TDispatchProps = {}, TOwnProps = {}, TMergedProps = {}>(
     mapStateToProps: null | undefined,
     mapDispatchToProps: MapDispatchToPropsParam<TDispatchProps, TOwnProps>,
-    mergeProps: MergeProps<undefined, TDispatchProps, TOwnProps, TMergedProps>
+    mergeProps: MergeProps<undefined, TDispatchProps, TOwnProps, TMergedProps>,
   ): InferableComponentEnhancerWithProps<TMergedProps, TOwnProps>
 
   /** mapState and options */
@@ -355,7 +347,7 @@ export interface Connect<DefaultState = unknown> {
     mapStateToProps: MapStateToPropsParam<TStateProps, TOwnProps, State>,
     mapDispatchToProps: null | undefined,
     mergeProps: null | undefined,
-    options: ConnectOptions<State, TStateProps, TOwnProps>
+    options: ConnectOptions<State, TStateProps, TOwnProps>,
   ): InferableComponentEnhancerWithProps<DispatchProp & TStateProps, TOwnProps>
 
   /** mapDispatch (as a function) and options */
@@ -363,7 +355,7 @@ export interface Connect<DefaultState = unknown> {
     mapStateToProps: null | undefined,
     mapDispatchToProps: MapDispatchToPropsNonObject<TDispatchProps, TOwnProps>,
     mergeProps: null | undefined,
-    options: ConnectOptions<{}, TStateProps, TOwnProps>
+    options: ConnectOptions<{}, TStateProps, TOwnProps>,
   ): InferableComponentEnhancerWithProps<TDispatchProps, TOwnProps>
 
   /** mapDispatch (as an object) and options*/
@@ -371,7 +363,7 @@ export interface Connect<DefaultState = unknown> {
     mapStateToProps: null | undefined,
     mapDispatchToProps: MapDispatchToPropsParam<TDispatchProps, TOwnProps>,
     mergeProps: null | undefined,
-    options: ConnectOptions<{}, TStateProps, TOwnProps>
+    options: ConnectOptions<{}, TStateProps, TOwnProps>,
   ): InferableComponentEnhancerWithProps<
     ResolveThunks<TDispatchProps>,
     TOwnProps
@@ -382,7 +374,7 @@ export interface Connect<DefaultState = unknown> {
     mapStateToProps: MapStateToPropsParam<TStateProps, TOwnProps, State>,
     mapDispatchToProps: MapDispatchToPropsNonObject<TDispatchProps, TOwnProps>,
     mergeProps: null | undefined,
-    options: ConnectOptions<State, TStateProps, TOwnProps>
+    options: ConnectOptions<State, TStateProps, TOwnProps>,
   ): InferableComponentEnhancerWithProps<
     TStateProps & TDispatchProps,
     TOwnProps
@@ -393,7 +385,7 @@ export interface Connect<DefaultState = unknown> {
     mapStateToProps: MapStateToPropsParam<TStateProps, TOwnProps, State>,
     mapDispatchToProps: MapDispatchToPropsParam<TDispatchProps, TOwnProps>,
     mergeProps: null | undefined,
-    options: ConnectOptions<State, TStateProps, TOwnProps>
+    options: ConnectOptions<State, TStateProps, TOwnProps>,
   ): InferableComponentEnhancerWithProps<
     TStateProps & ResolveThunks<TDispatchProps>,
     TOwnProps
@@ -405,7 +397,7 @@ export interface Connect<DefaultState = unknown> {
     TDispatchProps = {},
     TOwnProps = {},
     TMergedProps = {},
-    State = DefaultState
+    State = DefaultState,
   >(
     mapStateToProps: MapStateToPropsParam<TStateProps, TOwnProps, State>,
     mapDispatchToProps: MapDispatchToPropsParam<TDispatchProps, TOwnProps>,
@@ -415,7 +407,7 @@ export interface Connect<DefaultState = unknown> {
       TOwnProps,
       TMergedProps
     >,
-    options?: ConnectOptions<State, TStateProps, TOwnProps, TMergedProps>
+    options?: ConnectOptions<State, TStateProps, TOwnProps, TMergedProps>,
   ): InferableComponentEnhancerWithProps<TMergedProps, TOwnProps>
   // tslint:enable:no-unnecessary-generics
 }
@@ -447,7 +439,7 @@ function connect<
   TDispatchProps = {},
   TOwnProps = {},
   TMergedProps = {},
-  State = unknown
+  State = unknown,
 >(
   mapStateToProps?: MapStateToPropsParam<TStateProps, TOwnProps, State>,
   mapDispatchToProps?: MapDispatchToPropsParam<TDispatchProps, TOwnProps>,
@@ -466,13 +458,13 @@ function connect<
 
     // the context consumer to use
     context = ReactReduxContext,
-  }: ConnectOptions<unknown, unknown, unknown, unknown> = {}
+  }: ConnectOptions<unknown, unknown, unknown, unknown> = {},
 ): unknown {
   if (process.env.NODE_ENV !== 'production') {
     if (pure !== undefined && !hasWarnedAboutDeprecatedPureOption) {
       hasWarnedAboutDeprecatedPureOption = true
       warning(
-        'The `pure` option has been removed. `connect` is now always a "pure/memoized" component'
+        'The `pure` option has been removed. `connect` is now always a "pure/memoized" component',
       )
     }
   }
@@ -486,20 +478,19 @@ function connect<
   const shouldHandleStateChanges = Boolean(mapStateToProps)
 
   const wrapWithConnect = <TProps,>(
-    WrappedComponent: ComponentType<TProps>
+    WrappedComponent: ComponentType<TProps>,
   ) => {
     type WrappedComponentProps = TProps &
       ConnectPropsMaybeWithoutContext<TProps>
 
-    if (
-      process.env.NODE_ENV !== 'production' &&
-      !isValidElementType(WrappedComponent)
-    ) {
-      throw new Error(
-        `You must pass a component to the function returned by connect. Instead received ${stringifyComponent(
-          WrappedComponent
-        )}`
-      )
+    if (process.env.NODE_ENV !== 'production') {
+      const isValid = /*#__PURE__*/ isValidElementType(WrappedComponent)
+      if (!isValid)
+        throw new Error(
+          `You must pass a component to the function returned by connect. Instead received ${stringifyComponent(
+            WrappedComponent,
+          )}`,
+        )
     }
 
     const wrappedComponentName =
@@ -520,7 +511,6 @@ function connect<
       WrappedComponent,
       // @ts-ignore
       initMapStateToProps,
-      // @ts-ignore
       initMapDispatchToProps,
       initMergeProps,
       areStatesEqual,
@@ -530,10 +520,10 @@ function connect<
     }
 
     function ConnectFunction<TOwnProps>(
-      props: InternalConnectProps & TOwnProps
+      props: InternalConnectProps & TOwnProps,
     ) {
       const [propsContext, reactReduxForwardedRef, wrapperProps] =
-        useMemo(() => {
+        React.useMemo(() => {
           // Distinguish between actual "data" props that were passed to the wrapper component,
           // and values needed to control behavior (forwarded refs, alternate context instances).
           // To maintain the wrapperProps object reference, memoize this destructuring.
@@ -541,19 +531,29 @@ function connect<
           return [props.context, reactReduxForwardedRef, wrapperProps]
         }, [props])
 
-      const ContextToUse: ReactReduxContextInstance = useMemo(() => {
+      const ContextToUse: ReactReduxContextInstance = React.useMemo(() => {
         // Users may optionally pass in a custom context instance to use instead of our ReactReduxContext.
         // Memoize the check that determines which context instance we should use.
-        return propsContext &&
-          propsContext.Consumer &&
-          // @ts-ignore
-          isContextConsumer(<propsContext.Consumer />)
-          ? propsContext
-          : Context
+        let ResultContext = Context
+        if (propsContext?.Consumer) {
+          if (process.env.NODE_ENV !== 'production') {
+            const isValid = /*#__PURE__*/ isContextConsumer(
+              // @ts-ignore
+              <propsContext.Consumer />,
+            )
+            if (!isValid) {
+              throw new Error(
+                'You must pass a valid React context consumer as `props.context`',
+              )
+            }
+            ResultContext = propsContext
+          }
+        }
+        return ResultContext
       }, [propsContext, Context])
 
       // Retrieve the store and ancestor subscription via context, if available
-      const contextValue = useContext(ContextToUse)
+      const contextValue = React.useContext(ContextToUse)
 
       // The store _must_ exist as either a prop or in context.
       // We'll check to see if it _looks_ like a Redux store first.
@@ -574,7 +574,7 @@ function connect<
           `Could not find "store" in the context of ` +
             `"${displayName}". Either wrap the root component in a <Provider>, ` +
             `or pass a custom React context provider to <Provider> and the corresponding ` +
-            `React context consumer to ${displayName} in connect options.`
+            `React context consumer to ${displayName} in connect options.`,
         )
       }
 
@@ -584,23 +584,23 @@ function connect<
         : contextValue!.store
 
       const getServerState = didStoreComeFromContext
-        ? contextValue.getServerState
+        ? contextValue!.getServerState
         : store.getState
 
-      const childPropsSelector = useMemo(() => {
+      const childPropsSelector = React.useMemo(() => {
         // The child props selector needs the store reference as an input.
         // Re-create this selector whenever the store changes.
         return defaultSelectorFactory(store.dispatch, selectorFactoryOptions)
       }, [store])
 
-      const [subscription, notifyNestedSubs] = useMemo(() => {
+      const [subscription, notifyNestedSubs] = React.useMemo(() => {
         if (!shouldHandleStateChanges) return NO_SUBSCRIPTION_ARRAY
 
         // This Subscription's source should match where store came from: props vs. context. A component
         // connected to the store via props shouldn't use subscription from context, or vice versa.
         const subscription = createSubscription(
           store,
-          didStoreComeFromProps ? undefined : contextValue!.subscription
+          didStoreComeFromProps ? undefined : contextValue!.subscription,
         )
 
         // `notifyNestedSubs` is duplicated to handle the case where the component is unmounted in
@@ -615,7 +615,7 @@ function connect<
 
       // Determine what {store, subscription} value should be put into nested context, if necessary,
       // and memoize that value to avoid unnecessary context updates.
-      const overriddenContextValue = useMemo(() => {
+      const overriddenContextValue = React.useMemo(() => {
         if (didStoreComeFromProps) {
           // This component is directly subscribed to a store from props.
           // We don't want descendants reading from this store - pass down whatever
@@ -632,14 +632,19 @@ function connect<
       }, [didStoreComeFromProps, contextValue, subscription])
 
       // Set up refs to coordinate values between the subscription effect and the render logic
-      const lastChildProps = useRef<unknown>()
-      const lastWrapperProps = useRef(wrapperProps)
-      const childPropsFromStoreUpdate = useRef<unknown>()
-      const renderIsScheduled = useRef(false)
-      const isProcessingDispatch = useRef(false)
-      const isMounted = useRef(false)
+      const lastChildProps = React.useRef<unknown>(undefined)
+      const lastWrapperProps = React.useRef(wrapperProps)
+      const childPropsFromStoreUpdate = React.useRef<unknown>(undefined)
+      const renderIsScheduled = React.useRef(false)
+      const isMounted = React.useRef(false)
 
-      const latestSubscriptionCallbackError = useRef<Error>()
+      // TODO: Change this to `React.useRef<Error>(undefined)` after upgrading to React 19.
+      /**
+       * @todo Change this to `React.useRef<Error>(undefined)` after upgrading to React 19.
+       */
+      const latestSubscriptionCallbackError = React.useRef<Error | undefined>(
+        undefined,
+      )
 
       useIsomorphicLayoutEffect(() => {
         isMounted.current = true
@@ -648,7 +653,7 @@ function connect<
         }
       }, [])
 
-      const actualChildPropsSelector = useMemo(() => {
+      const actualChildPropsSelector = React.useMemo(() => {
         const selector = () => {
           // Tricky logic here:
           // - This render may have been triggered by a Redux store update that produced new child props
@@ -676,7 +681,7 @@ function connect<
       // about useLayoutEffect in SSR, so we try to detect environment and fall back to
       // just useEffect instead to avoid the warning, since neither will run anyway.
 
-      const subscribeForReact = useMemo(() => {
+      const subscribeForReact = React.useMemo(() => {
         const subscribe = (reactListener: () => void) => {
           if (!subscription) {
             return () => {}
@@ -694,7 +699,7 @@ function connect<
             isMounted,
             childPropsFromStoreUpdate,
             notifyNestedSubs,
-            reactListener
+            reactListener,
           )
         }
 
@@ -713,7 +718,7 @@ function connect<
       let actualChildProps: Record<string, unknown>
 
       try {
-        actualChildProps = useSyncExternalStore(
+        actualChildProps = React.useSyncExternalStore(
           // TODO We're passing through a big wrapper that does a bunch of extra side effects besides subscribing
           subscribeForReact,
           // TODO This is incredibly hacky. We've already processed the store update and calculated new child props,
@@ -721,13 +726,13 @@ function connect<
           actualChildPropsSelector,
           getServerState
             ? () => childPropsSelector(getServerState(), wrapperProps)
-            : actualChildPropsSelector
+            : actualChildPropsSelector,
         )
       } catch (err) {
         if (latestSubscriptionCallbackError.current) {
-          ;(
-            err as Error
-          ).message += `\nThe error may be correlated with this previous error:\n${latestSubscriptionCallbackError.current.stack}\n\n`
+          // eslint-disable-next-line no-extra-semi
+          ;(err as Error).message +=
+            `\nThe error may be correlated with this previous error:\n${latestSubscriptionCallbackError.current.stack}\n\n`
         }
 
         throw err
@@ -741,7 +746,7 @@ function connect<
 
       // Now that all that's done, we can finally try to actually render the child component.
       // We memoize the elements for the rendered child component as an optimization.
-      const renderedWrappedComponent = useMemo(() => {
+      const renderedWrappedComponent = React.useMemo(() => {
         return (
           // @ts-ignore
           <WrappedComponent
@@ -753,7 +758,7 @@ function connect<
 
       // If React sees the exact same element reference as last time, it bails out of re-rendering
       // that child, same as if it was wrapped in React.memo() or returned false from shouldComponentUpdate.
-      const renderedChild = useMemo(() => {
+      const renderedChild = React.useMemo(() => {
         if (shouldHandleStateChanges) {
           // If this component is subscribed to store updates, we need to pass its own
           // subscription instance down to our descendants. That means rendering the same
@@ -786,21 +791,20 @@ function connect<
     Connect.displayName = ConnectFunction.displayName = displayName
 
     if (forwardRef) {
-      const _forwarded = React.forwardRef(function forwardConnectRef(
-        props,
-        ref
-      ) {
-        // @ts-ignore
-        return <Connect {...props} reactReduxForwardedRef={ref} />
-      })
+      const _forwarded = React.forwardRef(
+        function forwardConnectRef(props, ref) {
+          // @ts-ignore
+          return <Connect {...props} reactReduxForwardedRef={ref} />
+        },
+      )
 
       const forwarded = _forwarded as ConnectedWrapperComponent
       forwarded.displayName = displayName
       forwarded.WrappedComponent = WrappedComponent
-      return hoistStatics(forwarded, WrappedComponent)
+      return /*#__PURE__*/ hoistStatics(forwarded, WrappedComponent)
     }
 
-    return hoistStatics(Connect, WrappedComponent)
+    return /*#__PURE__*/ hoistStatics(Connect, WrappedComponent)
   }
 
   return wrapWithConnect

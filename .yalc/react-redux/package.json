@@ -1,6 +1,6 @@
 {
   "name": "react-redux",
-  "version": "8.1.1",
+  "version": "9.2.0",
   "description": "Official React bindings for Redux",
   "keywords": [
     "react",
@@ -12,51 +12,51 @@
   "homepage": "https://github.com/reduxjs/react-redux",
   "repository": "github:reduxjs/react-redux",
   "bugs": "https://github.com/reduxjs/react-redux/issues",
-  "main": "./lib/index.js",
-  "types": "./es/index.d.ts",
-  "unpkg": "dist/react-redux.js",
-  "module": "es/index.js",
+  "module": "dist/react-redux.legacy-esm.js",
+  "main": "dist/cjs/index.js",
+  "react-native": "./dist/react-redux.legacy-esm.js",
+  "types": "dist/react-redux.d.ts",
+  "exports": {
+    "./package.json": "./package.json",
+    ".": {
+      "types": "./dist/react-redux.d.ts",
+      "react-server": "./dist/rsc.mjs",
+      "react-native": "./dist/react-redux.legacy-esm.js",
+      "import": "./dist/react-redux.mjs",
+      "default": "./dist/cjs/index.js"
+    },
+    "./alternate-renderers": {
+      "types": "./dist/react-redux.d.ts",
+      "import": "./dist/react-redux.mjs",
+      "default": "./dist/cjs/index.js"
+    }
+  },
+  "sideEffects": false,
   "files": [
     "dist",
-    "lib",
-    "src",
-    "es"
+    "src"
   ],
   "scripts": {
-    "build:commonjs": "cross-env BABEL_ENV=commonjs babel src --extensions \".js,.ts,.tsx\" --out-dir lib",
-    "build:es": "babel src --extensions \".js,.ts,.tsx\" --out-dir es",
-    "build:umd": "cross-env NODE_ENV=development rollup -c -o dist/react-redux.js",
-    "build:umd:min": "cross-env NODE_ENV=production rollup -c -o dist/react-redux.min.js",
-    "build:types": "tsc",
-    "build": "yarn build:types && yarn build:commonjs && yarn build:es && yarn build:umd && yarn build:umd:min",
+    "build": "yarn clean && tsup",
     "clean": "rimraf lib dist es coverage",
     "api-types": "api-extractor run --local",
     "format": "prettier --write \"{src,test}/**/*.{js,ts,tsx}\" \"docs/**/*.md\"",
-    "lint": "eslint src --ext ts,tsx,js test/utils test/components test/hooks",
+    "lint": "eslint src test",
+    "lint:fix": "eslint src test --fix",
+    "prepack": "yarn build",
     "pretest": "yarn lint",
-    "test": "jest",
-    "type-tests": "yarn tsc -p test/typetests/tsconfig.json",
+    "test": "vitest --run --typecheck",
+    "test:watch": "vitest --watch",
+    "type-tests": "tsc --noEmit -p tsconfig.test.json",
     "coverage": "codecov"
   },
   "peerDependencies": {
-    "@types/react": "^16.8 || ^17.0 || ^18.0",
-    "@types/react-dom": "^16.8 || ^17.0 || ^18.0",
-    "react": "^16.8 || ^17.0 || ^18.0",
-    "react-dom": "^16.8 || ^17.0 || ^18.0",
-    "react-native": ">=0.59",
-    "redux": "^4 || ^5.0.0-beta.0"
+    "@types/react": "^18.2.25 || ^19",
+    "react": "^18.0 || ^19",
+    "redux": "^5.0.0"
   },
   "peerDependenciesMeta": {
     "@types/react": {
-      "optional": true
-    },
-    "@types/react-dom": {
-      "optional": true
-    },
-    "react-dom": {
-      "optional": true
-    },
-    "react-native": {
       "optional": true
     },
     "redux": {
@@ -64,12 +64,9 @@
     }
   },
   "dependencies": {
-    "@babel/runtime": "^7.12.1",
-    "@types/hoist-non-react-statics": "^3.3.1",
-    "@types/use-sync-external-store": "^0.0.3",
-    "hoist-non-react-statics": "^3.3.2",
-    "react-is": "^18.0.0",
-    "use-sync-external-store": "^1.0.0"
+    "@types/use-sync-external-store": "^0.0.6",
+    "use-sync-external-store": "^1.4.0"
   },
-  "yalcSig": "ea764a3365bc9f3c88f6e77bbb637f94"
+  "packageManager": "yarn@4.4.1",
+  "yalcSig": "9860a4ee952510f66ce16dd241b110b5"
 }

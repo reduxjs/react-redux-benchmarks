@@ -44,6 +44,7 @@
     "react-redux-6.0.1": "npm:react-redux@6.0.1",
     "react-redux-7.2.5": "npm:react-redux@7.2.5",
     "react-redux-8.1.1": "npm:react-redux@8.1.1",
+    "react-redux-9-uses-proxy": "file:.yalc/react-redux",
     "react-redux-9.2.0": "npm:react-redux@9.2.0",
     "recursive-copy": "^2.0.9",
     "redux": "^5.0.0",

@@ -1,39 +1,120 @@
-import { useCallback, useDebugValue, useMemo, useRef } from 'react'
-
+//import * as React from 'react'
+import { React } from '../utils/react'
+//import { useSyncExternalStoreWithSelector } from 'use-sync-external-store/with-selector.js'
+import { useSyncExternalStoreWithSelector } from '../utils/useSyncExternalStoreWithSelector'
+import type { ReactReduxContextValue } from '../components/Context'
+import { ReactReduxContext } from '../components/Context'
+import type { EqualityFn, NoInfer } from '../types'
 import {
   createReduxContextHook,
   useReduxContext as useDefaultReduxContext,
 } from './useReduxContext'
-import { ReactReduxContext } from '../components/Context'
-import type { EqualityFn, NoInfer } from '../types'
-import type { uSESWS } from '../utils/useSyncExternalStore'
-import { notInitialized } from '../utils/useSyncExternalStore'
-import { useIsomorphicLayoutEffect } from '../utils/useIsomorphicLayoutEffect'
-import { createCache } from '../utils/autotracking/autotracking'
-import { CacheWrapper } from '../utils/Subscription'
 
-export type CheckFrequency = 'never' | 'once' | 'always'
+/**
+ * The frequency of development mode checks.
+ *
+ * @since 8.1.0
+ * @internal
+ */
+export type DevModeCheckFrequency = 'never' | 'once' | 'always'
+
+/**
+ * Represents the configuration for development mode checks.
+ *
+ * @since 9.0.0
+ * @internal
+ */
+export interface DevModeChecks {
+  /**
+   * Overrides the global stability check for the selector.
+   * - `once` - Run only the first time the selector is called.
+   * - `always` - Run every time the selector is called.
+   * - `never` - Never run the stability check.
+   *
+   * @default 'once'
+   *
+   * @since 8.1.0
+   */
+  stabilityCheck: DevModeCheckFrequency
+
+  /**
+   * Overrides the global identity function check for the selector.
+   * - `once` - Run only the first time the selector is called.
+   * - `always` - Run every time the selector is called.
+   * - `never` - Never run the identity function check.
+   *
+   * **Note**: Previously referred to as `noopCheck`.
+   *
+   * @default 'once'
+   *
+   * @since 9.0.0
+   */
+  identityFunctionCheck: DevModeCheckFrequency
+}
 
 export interface UseSelectorOptions<Selected = unknown> {
   equalityFn?: EqualityFn<Selected>
-  stabilityCheck?: CheckFrequency
-  noopCheck?: CheckFrequency
+
+  /**
+   * `useSelector` performs additional checks in development mode to help
+   * identify and warn about potential issues in selector behavior. This
+   * option allows you to customize the behavior of these checks per selector.
+   *
+   * @since 9.0.0
+   */
+  devModeChecks?: Partial<DevModeChecks>
 }
 
-export interface UseSelector {
-  <TState = unknown, Selected = unknown>(
+/**
+ * Represents a custom hook that allows you to extract data from the
+ * Redux store state, using a selector function. The selector function
+ * takes the current state as an argument and returns a part of the state
+ * or some derived data. The hook also supports an optional equality
+ * function or options object to customize its behavior.
+ *
+ * @template StateType - The specific type of state this hook operates on.
+ *
+ * @public
+ */
+export interface UseSelector<StateType = unknown> {
+  /**
+   * A function that takes a selector function as its first argument.
+   * The selector function is responsible for selecting a part of
+   * the Redux store's state or computing derived data.
+   *
+   * @param selector - A function that receives the current state and returns a part of the state or some derived data.
+   * @param equalityFnOrOptions - An optional equality function or options object for customizing the behavior of the selector.
+   * @returns The selected part of the state or derived data.
+   *
+   * @template TState - The specific type of state this hook operates on.
+   * @template Selected - The type of the value that the selector function will return.
+   */
+  <TState extends StateType = StateType, Selected = unknown>(
     selector: (state: TState) => Selected,
-    equalityFn?: EqualityFn<Selected>
+    equalityFnOrOptions?: EqualityFn<Selected> | UseSelectorOptions<Selected>,
   ): Selected
-  <TState = unknown, Selected = unknown>(
-    selector: (state: TState) => Selected,
-    options?: UseSelectorOptions<Selected>
-  ): Selected
-}
 
-let useSyncExternalStoreWithSelector = notInitialized as uSESWS
-export const initializeUseSelector = (fn: uSESWS) => {
-  useSyncExternalStoreWithSelector = fn
+  /**
+   * Creates a "pre-typed" version of {@linkcode useSelector useSelector}
+   * where the `state` type is predefined.
+   *
+   * This allows you to set the `state` type once, eliminating the need to
+   * specify it with every {@linkcode useSelector useSelector} call.
+   *
+   * @returns A pre-typed `useSelector` with the state type already defined.
+   *
+   * @example
+   * ```ts
+   * export const useAppSelector = useSelector.withTypes<RootState>()
+   * ```
+   *
+   * @template OverrideStateType - The specific type of state this hook operates on.
+   *
+   * @since 9.1.0
+   */
+  withTypes: <
+    OverrideStateType extends StateType,
+  >() => UseSelector<OverrideStateType>
 }
 
 const refEquality: EqualityFn<any> = (a, b) => a === b
@@ -44,25 +125,27 @@ const refEquality: EqualityFn<any> = (a, b) => a === b
  * @param {React.Context} [context=ReactReduxContext] Context passed to your `<Provider>`.
  * @returns {Function} A `useSelector` hook bound to the specified context.
  */
-export function createSelectorHook(context = ReactReduxContext): UseSelector {
+export function createSelectorHook(
+  context: React.Context<ReactReduxContextValue<
+    any,
+    any
+  > | null> = ReactReduxContext,
+): UseSelector {
   const useReduxContext =
     context === ReactReduxContext
       ? useDefaultReduxContext
       : createReduxContextHook(context)
 
-  return function useSelector<TState, Selected extends unknown>(
+  const useSelector = <TState, Selected>(
     selector: (state: TState) => Selected,
     equalityFnOrOptions:
       | EqualityFn<NoInfer<Selected>>
-      | UseSelectorOptions<NoInfer<Selected>> = {}
-  ): Selected {
-    const {
-      equalityFn = refEquality,
-      stabilityCheck = undefined,
-      noopCheck = undefined,
-    } = typeof equalityFnOrOptions === 'function'
-      ? { equalityFn: equalityFnOrOptions }
-      : equalityFnOrOptions
+      | UseSelectorOptions<NoInfer<Selected>> = {},
+  ): Selected => {
+    const { equalityFn = refEquality } =
+      typeof equalityFnOrOptions === 'function'
+        ? { equalityFn: equalityFnOrOptions }
+        : equalityFnOrOptions
     if (process.env.NODE_ENV !== 'production') {
       if (!selector) {
         throw new Error(`You must pass a selector to useSelector`)
@@ -72,37 +155,48 @@ export function createSelectorHook(context = ReactReduxContext): UseSelector {
       }
       if (typeof equalityFn !== 'function') {
         throw new Error(
-          `You must pass a function as an equality function to useSelector`
+          `You must pass a function as an equality function to useSelector`,
         )
       }
     }
 
-    const {
-      store,
-      subscription,
-      getServerState,
-      stabilityCheck: globalStabilityCheck,
-      noopCheck: globalNoopCheck,
-      trackingNode,
-    } = useReduxContext()!
+    const reduxContext = useReduxContext()
 
-    const firstRun = useRef(true)
+    const { store, subscription, getServerState } = reduxContext
 
-    const wrappedSelector = useCallback<typeof selector>(
+    const firstRun = React.useRef(true)
+
+    const wrappedSelector = React.useCallback<typeof selector>(
       {
         [selector.name](state: TState) {
           const selected = selector(state)
           if (process.env.NODE_ENV !== 'production') {
-            const finalStabilityCheck =
-              typeof stabilityCheck === 'undefined'
-                ? globalStabilityCheck
-                : stabilityCheck
+            const { devModeChecks = {} } =
+              typeof equalityFnOrOptions === 'function'
+                ? {}
+                : equalityFnOrOptions
+            const { identityFunctionCheck, stabilityCheck } = reduxContext
+            const {
+              identityFunctionCheck: finalIdentityFunctionCheck,
+              stabilityCheck: finalStabilityCheck,
+            } = {
+              stabilityCheck,
+              identityFunctionCheck,
+              ...devModeChecks,
+            }
             if (
               finalStabilityCheck === 'always' ||
               (finalStabilityCheck === 'once' && firstRun.current)
             ) {
               const toCompare = selector(state)
               if (!equalityFn(selected, toCompare)) {
+                let stack: string | undefined = undefined
+                try {
+                  throw new Error()
+                } catch (e) {
+                  // eslint-disable-next-line no-extra-semi
+                  ;({ stack } = e as Error)
+                }
                 console.warn(
                   'Selector ' +
                     (selector.name || 'unknown') +
@@ -112,23 +206,30 @@ export function createSelectorHook(context = ReactReduxContext): UseSelector {
                     state,
                     selected,
                     selected2: toCompare,
-                  }
+                    stack,
+                  },
                 )
               }
             }
-            const finalNoopCheck =
-              typeof noopCheck === 'undefined' ? globalNoopCheck : noopCheck
             if (
-              finalNoopCheck === 'always' ||
-              (finalNoopCheck === 'once' && firstRun.current)
+              finalIdentityFunctionCheck === 'always' ||
+              (finalIdentityFunctionCheck === 'once' && firstRun.current)
             ) {
               // @ts-ignore
               if (selected === state) {
+                let stack: string | undefined = undefined
+                try {
+                  throw new Error()
+                } catch (e) {
+                  // eslint-disable-next-line no-extra-semi
+                  ;({ stack } = e as Error)
+                }
                 console.warn(
                   'Selector ' +
                     (selector.name || 'unknown') +
                     ' returned the root state when called. This can lead to unnecessary rerenders.' +
-                    '\nSelectors that return the entire state are almost certainly a mistake, as they will cause a rerender whenever *anything* in state changes.'
+                    '\nSelectors that return the entire state are almost certainly a mistake, as they will cause a rerender whenever *anything* in state changes.',
+                  { stack },
                 )
               }
             }
@@ -137,62 +238,27 @@ export function createSelectorHook(context = ReactReduxContext): UseSelector {
           return selected
         },
       }[selector.name],
-      [selector, globalStabilityCheck, stabilityCheck]
+      [selector],
     )
-
-    const latestWrappedSelectorRef = useRef(wrappedSelector)
-
-    // console.log(
-    //   'Writing latest selector. Same reference? ',
-    //   wrappedSelector === latestWrappedSelectorRef.current
-    // )
-    latestWrappedSelectorRef.current = wrappedSelector
-
-    const cache = useMemo(() => {
-      //console.log('Recreating cache')
-      const cache = createCache(() => {
-        // console.log('Wrapper cache called: ', store.getState())
-        //return latestWrappedSelectorRef.current(trackingNode.proxy as TState)
-        return wrappedSelector(trackingNode.proxy as TState)
-      })
-      return cache
-    }, [trackingNode, wrappedSelector])
-
-    const cacheWrapper = useRef({ cache } as CacheWrapper)
-
-    useIsomorphicLayoutEffect(() => {
-      cacheWrapper.current.cache = cache
-    })
-
-    const subscribeToStore = useMemo(() => {
-      const subscribeToStore = (onStoreChange: () => void) => {
-        const wrappedOnStoreChange = () => {
-          // console.log('wrappedOnStoreChange')
-          return onStoreChange()
-        }
-        // console.log('Subscribing to store with tracking')
-        return subscription.addNestedSub(wrappedOnStoreChange, {
-          trigger: 'tracked',
-          cache: cacheWrapper.current,
-        })
-      }
-      return subscribeToStore
-    }, [subscription])
 
     const selectedState = useSyncExternalStoreWithSelector(
-      //subscription.addNestedSub,
-      subscribeToStore,
+      subscription.addNestedSub,
       store.getState,
-      //() => trackingNode.proxy as TState,
       getServerState || store.getState,
-      cache.getValue,
-      equalityFn
+      wrappedSelector,
+      equalityFn,
     )
 
-    useDebugValue(selectedState)
+    React.useDebugValue(selectedState)
 
     return selectedState
   }
+
+  Object.assign(useSelector, {
+    withTypes: () => useSelector,
+  })
+
+  return useSelector as UseSelector
 }
 
 /**

@@ -313,6 +313,7 @@ __metadata:
     react-redux-6.0.1: "npm:react-redux@6.0.1"
     react-redux-7.2.5: "npm:react-redux@7.2.5"
     react-redux-8.1.1: "npm:react-redux@8.1.1"
+    react-redux-9-uses-proxy: "file:.yalc/react-redux"
     react-redux-9.2.0: "npm:react-redux@9.2.0"
     recursive-copy: ^2.0.9
     redux: ^5.0.0
@@ -3183,6 +3184,25 @@ __metadata:
     redux:
       optional: true
   checksum: 370676330727764d78f35e9c5a0ed0591d79482fe9b70fffcab4aa6bcccc6194e4f1ebd818b4b390351dea5557e70d3bd4d95d7a0ac9baa1f45d6bf2230ee713
+  languageName: node
+  linkType: hard
+
+"react-redux-9-uses-proxy@file:.yalc/react-redux::locator=%40reduxjs%2Freact-redux-benchmarks%40workspace%3A.":
+  version: 9.2.0
+  resolution: "react-redux-9-uses-proxy@file:.yalc/react-redux#.yalc/react-redux::hash=7202eb&locator=%40reduxjs%2Freact-redux-benchmarks%40workspace%3A."
+  dependencies:
+    "@types/use-sync-external-store": ^0.0.6
+    use-sync-external-store: ^1.4.0
+  peerDependencies:
+    "@types/react": ^18.2.25 || ^19
+    react: ^18.0 || ^19
+    redux: ^5.0.0
+  peerDependenciesMeta:
+    "@types/react":
+      optional: true
+    redux:
+      optional: true
+  checksum: 24542bddaa8f6cb1f005e832c21af5bd91c5b627c71263bac99a54a445b87c27657afe88b6aeb9cab2f8b0865d1921099be907d7268b17c9540c45d76a43fdec
   languageName: node
   linkType: hard
 

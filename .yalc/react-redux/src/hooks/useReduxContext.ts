@@ -1,4 +1,4 @@
-import { useContext } from 'react'
+import { React } from '../utils/react'
 import { ReactReduxContext } from '../components/Context'
 import type { ReactReduxContextValue } from '../components/Context'
 
@@ -10,16 +10,16 @@ import type { ReactReduxContextValue } from '../components/Context'
  * @returns {Function} A `useReduxContext` hook bound to the specified context.
  */
 export function createReduxContextHook(context = ReactReduxContext) {
-  return function useReduxContext(): ReactReduxContextValue | null {
-    const contextValue = useContext(context)
+  return function useReduxContext(): ReactReduxContextValue {
+    const contextValue = React.useContext(context)
 
     if (process.env.NODE_ENV !== 'production' && !contextValue) {
       throw new Error(
-        'could not find react-redux context value; please ensure the component is wrapped in a <Provider>'
+        'could not find react-redux context value; please ensure the component is wrapped in a <Provider>',
       )
     }
 
-    return contextValue
+    return contextValue!
   }
 }
 

@@ -1,13 +1,4 @@
-import type { Store } from 'redux'
-import { getBatch } from './batch'
-import type { Node } from './autotracking/tracking'
-
-import {
-  createCache,
-  TrackingCache,
-  $REVISION,
-} from './autotracking/autotracking'
-import { updateNode } from './autotracking/proxy'
+import { defaultNoopBatch as batch } from './batch'
 
 // encapsulates the subscription logic for connecting a component to the redux store, as
 // well as nesting subscriptions of descendant components, so that we can ensure the
@@ -15,20 +6,13 @@ import { updateNode } from './autotracking/proxy'
 
 type VoidFunc = () => void
 
-export interface CacheWrapper {
-  cache: TrackingCache
-}
-
 type Listener = {
   callback: VoidFunc
   next: Listener | null
   prev: Listener | null
-  trigger: 'always' | 'tracked'
-  selectorCache?: CacheWrapper
 }
 
 function createListenerCollection() {
-  const batch = getBatch()
   let first: Listener | null = null
   let last: Listener | null = null
 
@@ -39,36 +23,17 @@ function createListenerCollection() {
     },
 
     notify() {
-      //console.log('Notifying subscribers')
       batch(() => {
         let listener = first
         while (listener) {
-          //console.log('Listener: ', listener)
-          if (listener.trigger == 'tracked') {
-            if (listener.selectorCache!.cache.needsRecalculation()) {
-              //console.log('Calling subscriber due to recalc need')
-              // console.log(
-              //   'Calling subscriber due to recalc. Revision before: ',
-              //   $REVISION
-              // )
-              listener.callback()
-              //console.log('Revision after: ', $REVISION)
-            } else {
-              // console.log(
-              //   'Skipping subscriber, no recalc: ',
-              //   listener.selectorCache
-              // )
-            }
-          } else {
-            listener.callback()
-          }
+          listener.callback()
           listener = listener.next
         }
       })
     },
 
     get() {
-      let listeners: Listener[] = []
+      const listeners: Listener[] = []
       let listener = first
       while (listener) {
         listeners.push(listener)
@@ -77,29 +42,13 @@ function createListenerCollection() {
       return listeners
     },
 
-    subscribe(
-      callback: () => void,
-      options: AddNestedSubOptions = { trigger: 'always' }
-    ) {
+    subscribe(callback: () => void) {
       let isSubscribed = true
 
-      //console.log('Adding listener: ', options.trigger)
-
-      let listener: Listener = (last = {
+      const listener: Listener = (last = {
         callback,
         next: null,
         prev: last,
-        trigger: options.trigger,
-        selectorCache:
-          options.trigger === 'tracked' ? options.cache! : undefined,
-        // subscriberCache:
-        //   options.trigger === 'tracked'
-        //     ? createCache(() => {
-        //         console.log('Calling subscriberCache')
-        //         listener.selectorCache!.get()
-        //         callback()
-        //       })
-        //     : undefined,
       })
 
       if (listener.prev) {
@@ -129,18 +78,13 @@ function createListenerCollection() {
 
 type ListenerCollection = ReturnType<typeof createListenerCollection>
 
-interface AddNestedSubOptions {
-  trigger: 'always' | 'tracked'
-  cache?: CacheWrapper
-}
-
 export interface Subscription {
-  addNestedSub: (listener: VoidFunc, options?: AddNestedSubOptions) => VoidFunc
+  addNestedSub: (listener: VoidFunc) => VoidFunc
   notifyNestedSubs: VoidFunc
   handleChangeWrapper: VoidFunc
   isSubscribed: () => boolean
   onStateChange?: VoidFunc | null
-  trySubscribe: (options?: AddNestedSubOptions) => void
+  trySubscribe: VoidFunc
   tryUnsubscribe: VoidFunc
   getListeners: () => ListenerCollection
 }
@@ -150,28 +94,33 @@ const nullListeners = {
   get: () => [],
 } as unknown as ListenerCollection
 
-export function createSubscription(
-  store: Store,
-  parentSub?: Subscription,
-  trackingNode?: Node<any>
-) {
+export function createSubscription(store: any, parentSub?: Subscription) {
   let unsubscribe: VoidFunc | undefined
   let listeners: ListenerCollection = nullListeners
 
-  function addNestedSub(
-    listener: () => void,
-    options: AddNestedSubOptions = { trigger: 'always' }
-  ) {
-    //console.log('addNestedSub: ', options)
-    trySubscribe(options)
-    return listeners.subscribe(listener, options)
+  // Reasons to keep the subscription active
+  let subscriptionsAmount = 0
+
+  // Is this specific subscription subscribed (or only nested ones?)
+  let selfSubscribed = false
+
+  function addNestedSub(listener: () => void) {
+    trySubscribe()
+
+    const cleanupListener = listeners.subscribe(listener)
+
+    // cleanup nested sub
+    let removed = false
+    return () => {
+      if (!removed) {
+        removed = true
+        cleanupListener()
+        tryUnsubscribe()
+      }
+    }
   }
 
   function notifyNestedSubs() {
-    if (store && trackingNode) {
-      //console.log('Updating node in notifyNestedSubs')
-      updateNode(trackingNode, store.getState())
-    }
     listeners.notify()
   }
 
@@ -182,14 +131,14 @@ export function createSubscription(
   }
 
   function isSubscribed() {
-    return Boolean(unsubscribe)
+    return selfSubscribed
   }
 
-  function trySubscribe(options: AddNestedSubOptions = { trigger: 'always' }) {
+  function trySubscribe() {
+    subscriptionsAmount++
     if (!unsubscribe) {
-      //console.log('trySubscribe, parentSub: ', parentSub)
       unsubscribe = parentSub
-        ? parentSub.addNestedSub(handleChangeWrapper, options)
+        ? parentSub.addNestedSub(handleChangeWrapper)
         : store.subscribe(handleChangeWrapper)
 
       listeners = createListenerCollection()
@@ -197,11 +146,26 @@ export function createSubscription(
   }
 
   function tryUnsubscribe() {
-    if (unsubscribe) {
+    subscriptionsAmount--
+    if (unsubscribe && subscriptionsAmount === 0) {
       unsubscribe()
       unsubscribe = undefined
       listeners.clear()
       listeners = nullListeners
+    }
+  }
+
+  function trySubscribeSelf() {
+    if (!selfSubscribed) {
+      selfSubscribed = true
+      trySubscribe()
+    }
+  }
+
+  function tryUnsubscribeSelf() {
+    if (selfSubscribed) {
+      selfSubscribed = false
+      tryUnsubscribe()
     }
   }
 
@@ -210,8 +174,8 @@ export function createSubscription(
     notifyNestedSubs,
     handleChangeWrapper,
     isSubscribed,
-    trySubscribe,
-    tryUnsubscribe,
+    trySubscribe: trySubscribeSelf,
+    tryUnsubscribe: tryUnsubscribeSelf,
     getListeners: () => listeners,
   }
 
