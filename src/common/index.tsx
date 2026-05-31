@@ -1,5 +1,5 @@
 import React, { Profiler, ProfilerProps } from 'react'
-import ReactDOM from 'react-dom'
+import { createRoot } from 'react-dom/client'
 import { Store } from 'redux'
 import { Provider } from 'react-redux'
 
@@ -45,12 +45,6 @@ export const renderApp = (App: React.ComponentType, store: Store) => {
   )
 
   const domNode = document.getElementById('root')!
-  if (process.env.CONCURRENT_RENDERING) {
-    console.log('Using React 18 `createRoot`...')
-    const domNode = document.getElementById('root')!
-    const root = ReactDOM.createRoot(domNode)
-    root.render(rootElements)
-  } else {
-    ReactDOM.render(rootElements, domNode)
-  }
+  const root = createRoot(domNode)
+  root.render(rootElements)
 }

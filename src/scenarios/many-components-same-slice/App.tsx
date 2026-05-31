@@ -3,8 +3,12 @@ import { useSelector } from 'react-redux'
 
 import * as c from './constants'
 
+interface RootState {
+  counter: number
+}
+
 function Component() {
-  const counter = useSelector((state) => state.counter)
+  const counter = useSelector((state: RootState) => state.counter)
 
   return <div>{counter}</div>
 }
