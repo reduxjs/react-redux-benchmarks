@@ -69,23 +69,24 @@ async function bundle(options: BuildOptions) {
 
   let resolvedReactReduxPath: string
 
-  if (depVersion?.startsWith('file:')) {
-    resolvedReactReduxPath = path.join(
-      path.resolve(depVersion.replace('file:', '')),
-      'es/index.js'
-    )
-  } else {
-    resolvedReactReduxPath = require.resolve(reactReduxPackageVersion)
-  }
+  // if (depVersion?.startsWith('file:')) {
+  //   resolvedReactReduxPath = path.join(
+  //     path.resolve(depVersion.replace('file:', '')),
+  //     'es/index.js'
+  //   )
+  // } else {
+  //   resolvedReactReduxPath = require.resolve(reactReduxPackageVersion)
+  // }
+  resolvedReactReduxPath = require.resolve(reactReduxPackageVersion)
 
   const result = await build({
     entryPoints: [entryPoint],
     outfile: outputFilePath,
     write: true,
-    target: 'es2017',
+    target: 'es2020',
     sourcemap: 'inline',
     bundle: true,
-    minify: true,
+    minify: false,
     keepNames: true,
     // Needed to prevent auto-replacing of process.env.NODE_ENV in all builds
     platform: 'neutral',
