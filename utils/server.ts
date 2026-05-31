@@ -2,6 +2,7 @@
 'use strict'
 
 import { performance } from 'perf_hooks'
+import fs from 'fs'
 
 import express from 'express'
 import tracealyzer from 'tracealyzer'
@@ -71,12 +72,12 @@ export async function capturePageStats(
   traceFilename: string | null,
   delay = 30000
 ) {
-  const page = await browser.newPage()
+  const context = await browser.newContext({})
+
+  const page = await context.newPage()
   await page.evaluate(() => {
     window.performance.setResourceTimingBufferSize(1000000)
   })
-
-  const context = await browser.newContext()
 
   let fpsValues: ProcessedFPSEntry[]
   let traceMetrics: TracealyticsResults | undefined = undefined
@@ -86,10 +87,16 @@ export async function capturePageStats(
   //console.log(`Loading page for version ${version}...`)
 
   if (trace) {
-    page.on('load', async () => {
-      await timeout(1000)
-      context.tracing.start({ name: traceFilename })
+    await browser.startTracing(page, {
+      // name: `${traceFilename}.json`,
+      path: `./${traceFilename}.json`,
     })
+    // page.on('load', async () => {
+    //   await timeout(1000)
+    //   context.tracing.start({
+    //     name: traceFilename,
+    //   })
+    // })
   }
   await page.goto(url)
 
@@ -97,8 +104,15 @@ export async function capturePageStats(
 
   if (trace) {
     await timeout(delay + 1000)
-    await context.tracing.stop()
-    traceMetrics = tracealyzer(traceFilename)
+    // await context.tracing.stop({
+    //   path: `./${traceFilename}.zip`,
+    //   /* path: traceFilename*/
+    // })
+    const buffer = (await browser.stopTracing()).toString()
+    // console.log('Buffer: ', buffer)
+    const outputFilename = `./runs/${traceFilename}.json`
+    fs.writeFileSync(outputFilename, buffer)
+    traceMetrics = tracealyzer(outputFilename)
   } else {
     await timeout(delay)
   }
