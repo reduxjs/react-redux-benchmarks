@@ -3,6 +3,7 @@ import ReactDOM from 'react-dom'
 import { configureStore, AnyAction } from '@reduxjs/toolkit'
 
 import { renderApp } from '../../common'
+import { dispatchTimingMiddleware } from '../../common/dispatch-timing'
 
 import App from './App'
 import * as c from './constants'
@@ -18,7 +19,7 @@ const store = configureStore({
     gdm({
       immutabilityCheck: false,
       serializableCheck: false,
-    }),
+    }).concat(dispatchTimingMiddleware),
 })
 
 store.dispatch(initialize({ numberOfCounters: c.NUMBER_OF_SLICES }))

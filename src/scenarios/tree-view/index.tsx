@@ -1,10 +1,10 @@
 import React, { useLayoutEffect } from 'react'
-import { Provider } from 'react-redux'
-import { createStore, combineReducers, AnyAction } from 'redux'
+import { configureStore } from '@reduxjs/toolkit'
 // @ts-ignore
 import seedrandom from 'seedrandom'
 
 import { renderApp } from '../../common'
+import { dispatchTimingMiddleware } from '../../common/dispatch-timing'
 
 import reducer from './reducers'
 import { doRandomAction } from './actions'
@@ -14,7 +14,15 @@ import Node from './containers/Node'
 seedrandom('test seed', { global: true })
 
 const tree = generateTree(5000)
-const store = createStore(reducer, tree)
+const store = configureStore({
+  reducer,
+  preloadedState: tree,
+  middleware: (gdm) =>
+    gdm({
+      immutabilityCheck: false,
+      serializableCheck: false,
+    }).concat(dispatchTimingMiddleware),
+})
 
 let maxUpdates = 3500,
   numUpdates = 0
