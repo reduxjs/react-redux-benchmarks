@@ -35,11 +35,34 @@ export interface CDPMetricsDelta {
   JSHeapUsedSize: number
 }
 
+// V8 CPU profile types (subset of the Chrome DevTools Protocol format)
+export interface V8CpuProfile {
+  nodes: V8ProfileNode[]
+  startTime: number
+  endTime: number
+  samples?: number[]
+  timeDeltas?: number[]
+}
+
+export interface V8ProfileNode {
+  id: number
+  callFrame: {
+    functionName: string
+    scriptId: string
+    url: string
+    lineNumber: number
+    columnNumber: number
+  }
+  hitCount?: number
+  children?: number[]
+}
+
 export interface PageStatsResult {
   cdpMetrics: CDPMetricsDelta
   dispatchStats: DispatchStats
   reactTimingEntries: RenderResult[]
   wallTime: number
+  cpuProfile?: V8CpuProfile
 }
 
 declare global {
@@ -101,7 +124,8 @@ function computeMetricsDelta(
 export async function capturePageStats(
   browser: Browser,
   url: string,
-  delay = 30000
+  delay = 30000,
+  enableProfiling = false
 ): Promise<PageStatsResult> {
   const context = await browser.newContext({})
   const page = await context.newPage()
@@ -109,6 +133,12 @@ export async function capturePageStats(
   // Set up CDP session for Performance metrics
   const cdp = await context.newCDPSession(page)
   await cdp.send('Performance.enable')
+
+  // Optional V8 CPU profiling
+  if (enableProfiling) {
+    await cdp.send('Profiler.enable')
+    await cdp.send('Profiler.start')
+  }
 
   await page.goto(url)
 
@@ -139,9 +169,17 @@ export async function capturePageStats(
     return window.renderResults
   })
 
+  // Stop V8 CPU profiling and collect profile
+  let cpuProfile: V8CpuProfile | undefined
+  if (enableProfiling) {
+    const result = await cdp.send('Profiler.stop')
+    cpuProfile = result.profile as unknown as V8CpuProfile
+    await cdp.send('Profiler.disable')
+  }
+
   await cdp.detach()
   await page.close()
   await context.close()
 
-  return { cdpMetrics, dispatchStats, reactTimingEntries, wallTime }
+  return { cdpMetrics, dispatchStats, reactTimingEntries, wallTime, cpuProfile }
 }
