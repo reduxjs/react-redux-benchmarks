@@ -2,32 +2,11 @@
 'use strict'
 
 import { performance } from 'perf_hooks'
-import fs from 'fs'
 
 import express from 'express'
-import tracealyzer from 'tracealyzer'
 
 import type { Browser } from 'playwright'
 import { Server } from 'http'
-
-type TracealyticsResults = ReturnType<typeof tracealyzer>
-
-export interface FPSStatsEntry {
-  type: string
-  timeStamp: number
-  meta: {
-    details: {
-      FPS: number
-      isFinal: boolean
-    }
-  }
-}
-
-export interface ProcessedFPSEntry {
-  FPS: number
-  timestamp: number
-  isFinal: boolean
-}
 
 export interface RenderResult {
   id: string
@@ -38,11 +17,34 @@ export interface RenderResult {
   commitTime: number
 }
 
-export type PageStatsResult = Awaited<ReturnType<typeof capturePageStats>>
+export interface DispatchStats {
+  count: number
+  totalTime: number
+  avgTime: number
+  maxTime: number
+  p95Time: number
+}
+
+export interface CDPMetricsDelta {
+  ScriptDuration: number
+  TaskDuration: number
+  LayoutDuration: number
+  RecalcStyleDuration: number
+  LayoutCount: number
+  RecalcStyleCount: number
+  JSHeapUsedSize: number
+}
+
+export interface PageStatsResult {
+  cdpMetrics: CDPMetricsDelta
+  dispatchStats: DispatchStats
+  reactTimingEntries: RenderResult[]
+  wallTime: number
+}
 
 declare global {
   interface Window {
-    getFpsStats: () => FPSStatsEntry[]
+    getDispatchStats: () => DispatchStats
     renderResults: RenderResult[]
   }
 }
@@ -60,85 +62,86 @@ export function runServer(port: number, sources: string): Promise<Server> {
       reject(err)
     })
     const server = app.listen(port, () => {
-      //console.log(`Server started on ${port}`);
       resolve(server)
     })
   })
 }
 
+interface CDPMetricEntry {
+  name: string
+  value: number
+}
+
+function metricsToMap(
+  metrics: CDPMetricEntry[]
+): Record<string, number> {
+  const map: Record<string, number> = {}
+  for (const m of metrics) {
+    map[m.name] = m.value
+  }
+  return map
+}
+
+function computeMetricsDelta(
+  before: Record<string, number>,
+  after: Record<string, number>
+): CDPMetricsDelta {
+  return {
+    ScriptDuration: after.ScriptDuration - before.ScriptDuration,
+    TaskDuration: after.TaskDuration - before.TaskDuration,
+    LayoutDuration: after.LayoutDuration - before.LayoutDuration,
+    RecalcStyleDuration:
+      after.RecalcStyleDuration - before.RecalcStyleDuration,
+    LayoutCount: after.LayoutCount - before.LayoutCount,
+    RecalcStyleCount: after.RecalcStyleCount - before.RecalcStyleCount,
+    JSHeapUsedSize: after.JSHeapUsedSize - before.JSHeapUsedSize,
+  }
+}
+
 export async function capturePageStats(
   browser: Browser,
   url: string,
-  traceFilename: string | null,
   delay = 30000
-) {
+): Promise<PageStatsResult> {
   const context = await browser.newContext({})
-
   const page = await context.newPage()
-  await page.evaluate(() => {
-    window.performance.setResourceTimingBufferSize(1000000)
-  })
 
-  let fpsValues: ProcessedFPSEntry[]
-  let traceMetrics: TracealyticsResults | undefined = undefined
+  // Set up CDP session for Performance metrics
+  const cdp = await context.newCDPSession(page)
+  await cdp.send('Performance.enable')
 
-  const trace = !!traceFilename
-
-  //console.log(`Loading page for version ${version}...`)
-
-  if (trace) {
-    await browser.startTracing(page, {
-      // name: `${traceFilename}.json`,
-      path: `./${traceFilename}.json`,
-    })
-    // page.on('load', async () => {
-    //   await timeout(1000)
-    //   context.tracing.start({
-    //     name: traceFilename,
-    //   })
-    // })
-  }
   await page.goto(url)
 
-  const start = performance.now()
+  // Snapshot CDP metrics before the measurement window
+  const beforeResult = await cdp.send('Performance.getMetrics')
+  const before = metricsToMap(beforeResult.metrics as CDPMetricEntry[])
 
-  if (trace) {
-    await timeout(delay + 1000)
-    // await context.tracing.stop({
-    //   path: `./${traceFilename}.zip`,
-    //   /* path: traceFilename*/
-    // })
-    const buffer = (await browser.stopTracing()).toString()
-    // console.log('Buffer: ', buffer)
-    const outputFilename = `./runs/${traceFilename}.json`
-    fs.writeFileSync(outputFilename, buffer)
-    traceMetrics = tracealyzer(outputFilename)
-  } else {
-    await timeout(delay)
-  }
+  const wallStart = performance.now()
 
-  const end = performance.now()
+  await timeout(delay)
 
-  const fpsStatsEntries: FPSStatsEntry[] =
-    JSON.parse(
-      await page.evaluate(() => {
-        return JSON.stringify(window.getFpsStats())
-      })
-    ) || []
+  const wallEnd = performance.now()
+  const wallTime = wallEnd - wallStart
 
-  const reactTimingEntries: RenderResult[] =
-    JSON.parse(
-      await page.evaluate(() => {
-        return JSON.stringify(window.renderResults)
-      })
-    ) || []
+  // Snapshot CDP metrics after the measurement window
+  const afterResult = await cdp.send('Performance.getMetrics')
+  const after = metricsToMap(afterResult.metrics as CDPMetricEntry[])
 
-  fpsValues = fpsStatsEntries.map((entry) => {
-    const { FPS, isFinal } = entry.meta.details
-    return { FPS, timestamp: entry.timeStamp, isFinal }
+  const cdpMetrics = computeMetricsDelta(before, after)
+
+  // Collect dispatch timing stats from the page
+  const dispatchStats: DispatchStats = await page.evaluate(() => {
+    return window.getDispatchStats()
   })
 
-  await page.close()
+  // Collect React Profiler timing entries
+  const reactTimingEntries: RenderResult[] = await page.evaluate(() => {
+    return window.renderResults
+  })
 
-  return { fpsValues, traceMetrics, start, end, reactTimingEntries }
+  await cdp.detach()
+  await page.close()
+  await context.close()
+
+  return { cdpMetrics, dispatchStats, reactTimingEntries, wallTime }
 }

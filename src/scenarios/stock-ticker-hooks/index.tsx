@@ -2,6 +2,7 @@ import React, { useLayoutEffect } from 'react'
 import { configureStore, AnyAction } from '@reduxjs/toolkit'
 
 import { renderApp } from '../../common'
+import { dispatchTimingMiddleware } from '../../common/dispatch-timing'
 
 import App from './App'
 import * as c from './constants'
@@ -40,7 +41,7 @@ const store = configureStore({
     gdm({
       immutabilityCheck: false,
       serializableCheck: false,
-    }),
+    }).concat(dispatchTimingMiddleware),
 })
 
 for (let i = 0; i < c.NUMBER_OF_SLICES; i++) {

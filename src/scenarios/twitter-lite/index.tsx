@@ -1,8 +1,9 @@
 import React, { useLayoutEffect } from 'react'
-import { createStore, combineReducers, AnyAction } from 'redux'
+import { configureStore, combineReducers, AnyAction } from '@reduxjs/toolkit'
 import { useSelector, useDispatch } from 'react-redux'
 
 import { renderApp } from '../../common'
+import { dispatchTimingMiddleware } from '../../common/dispatch-timing'
 
 import App from './App'
 
@@ -39,7 +40,14 @@ const reducers = Array(NUMBER_OF_SLICES)
 
 const rootReducer = combineReducers(reducers)
 
-const store = createStore(rootReducer)
+const store = configureStore({
+  reducer: rootReducer,
+  middleware: (gdm) =>
+    gdm({
+      immutabilityCheck: false,
+      serializableCheck: false,
+    }).concat(dispatchTimingMiddleware),
+})
 
 function addTweetInRandomSlice() {
   const sliceId = Math.floor(Math.random() * NUMBER_OF_SLICES)

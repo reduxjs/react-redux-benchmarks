@@ -2,6 +2,7 @@ import React, { useLayoutEffect } from 'react'
 import { configureStore } from '@reduxjs/toolkit'
 
 import { renderApp } from '../../common'
+import { dispatchTimingMiddleware } from '../../common/dispatch-timing'
 import { rootReducer, incrementActions } from './state'
 
 import App from './App'
@@ -12,7 +13,7 @@ const store = configureStore({
     gdm({
       immutabilityCheck: false,
       serializableCheck: false,
-    }),
+    }).concat(dispatchTimingMiddleware),
 })
 
 const incrementRandom = () => {
