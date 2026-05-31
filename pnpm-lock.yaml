@@ -41,15 +41,9 @@ importers:
       express:
         specifier: ^4.16.4
         version: 4.22.2
-      fps-emitter:
-        specifier: ^1.0.0
-        version: 1.0.0
       glob:
         specifier: ^7.1.3
         version: 7.2.3
-      performance-mark-metadata:
-        specifier: ^1.0.3
-        version: 1.0.3
       playwright:
         specifier: ^1.49.1
         version: 1.60.0
@@ -83,9 +77,6 @@ importers:
       seedrandom:
         specifier: ^3.0.5
         version: 3.0.5
-      tracealyzer:
-        specifier: ^0.9.3
-        version: 0.9.3
       tsx:
         specifier: ^4.19.2
         version: 4.22.3
@@ -108,9 +99,6 @@ importers:
       '@types/glob':
         specifier: ^8.1.0
         version: 8.1.0
-      '@types/lodash':
-        specifier: ^4.14.195
-        version: 4.17.24
       '@types/node':
         specifier: ^25.9.1
         version: 25.9.1
@@ -431,9 +419,6 @@ packages:
   '@rolldown/pluginutils@1.0.1':
     resolution: {integrity: sha512-2j9bGt5Jh8hj+vPtgzPtl72j0yRxHAyumoo6TNfAjsLB04UtpSvPbPcDcBMxz7n+9CYB0c1GxQFxYRg2jimqGw==}
 
-  '@solidjs/signals@0.9.3':
-    resolution: {integrity: sha512-mb8MfIPy2sKuAJEurfC0BeU/yLruNIlt6QBsF0kOPkui1Xq/n9vfVIy19JbGA5jRpXM2Cb+JJe8WPLUznI263A==}
-
   '@standard-schema/spec@1.1.0':
     resolution: {integrity: sha512-l2aFy5jALhniG5HgqrD6jXLi/rUWrKvqN/qJx6yoJsgKhblVd+iqqU4RCXavm/jPityDo5TCvKMnpjKnOriy0w==}
 
@@ -484,9 +469,6 @@ packages:
 
   '@types/http-errors@2.0.5':
     resolution: {integrity: sha512-r8Tayk8HJnX0FztbZN7oVqGccWgw98T/0neJphO91KkmOzug1KkofZURD4UaD5uH8AqcFLfdPErnBod0u71/qg==}
-
-  '@types/lodash@4.17.24':
-    resolution: {integrity: sha512-gIW7lQLZbue7lRSWEFql49QJJWThrTFFeIMJdp3eH4tKoxm1OvEPg02rm4wCCSHS0cL3/Fizimb35b7k8atwsQ==}
 
   '@types/mime@1.3.5':
     resolution: {integrity: sha512-/pyBZWSLD2n0dcHE3hq8s8ZvcETHtEuF+3E7XVt0Ig2nvsVQXdghHVcEkIWjy9A0wKfTn97a/PSDYohKIlnP/w==}
@@ -657,9 +639,6 @@ packages:
   chance@1.1.13:
     resolution: {integrity: sha512-V6lQCljcLznE7tUYUM9EOAnnKXbctE6j/rdQkYOHIWbfGQbrzTsAXNW9CdU5XCo4ArXQCj/rb6HgxPlmGJcaUg==}
 
-  chrome-devtools-frontend@1.0.445684:
-    resolution: {integrity: sha512-spYNnYZgjwQNKSmfxq9JBdhkWW89XaWkMu+iV5zQEmBJfKQer6pDI+8UBVaw6f2NH+C9rnLFmNBJh5ID8ig+Uw==}
-
   cli-table2@0.2.0:
     resolution: {integrity: sha512-rNig1Ons+B0eTcophmN0nlbsROa7B3+Yfo1J3leU56awc8IuKDW3MLMv9gayl4zUnYaLGg8CrecKso+hSmUvUw==}
 
@@ -738,9 +717,6 @@ packages:
   detect-libc@2.1.2:
     resolution: {integrity: sha512-Btj2BOOO83o3WyH59e8MgXsxEQVcarkUOpEYrubB0urwnN10yQ364rsiByU11nZlqWYZm05i/of7io4mzihBtQ==}
     engines: {node: '>=8'}
-
-  devtools-timeline-model@1.4.0:
-    resolution: {integrity: sha512-zjC31eo4yhPaGC6NnjpksA9ejq9sKtWrQXW9i790RfACXQFrZ/Ba/qcGcU3sqWww/3iZsnZpVDEiTUniKs4CvQ==}
 
   dom-accessibility-api@0.5.16:
     resolution: {integrity: sha512-X7BJ2yElsnOJ30pZF4uIIDfBEVgF4XEBxL9Bxhy6dnrm5hkzqmsWHGTiHqRiITNhMyFLyAiWndIJP7Z1NTteDg==}
@@ -822,9 +798,6 @@ packages:
   forwarded@0.2.0:
     resolution: {integrity: sha512-buRG0fpBtRHSTCOASe6hD258tEubFoRLb4ZNA6NxMVHNw2gOcwHo9wyablzMzOA5z9xA9L1KNjk/Nt6MT9aYow==}
     engines: {node: '>= 0.6'}
-
-  fps-emitter@1.0.0:
-    resolution: {integrity: sha512-/Slsx7iKk9mU8ne4i/hRLlU/OSZUMtWtBjT5qIAOiFGGFFVoU7P8ez8YcIYnkDlv0JUZnA1efayg1eVkBJAcsg==}
 
   fresh@0.5.2:
     resolution: {integrity: sha512-zJ2mQYM18rEFOudeV4GShTGIQ7RbzA7ozbU9I/XBpm7kqgMywgmylMwXHxZJmkVoYkna9d2pVXVXPdYTP9ej8Q==}
@@ -1093,9 +1066,6 @@ packages:
     resolution: {integrity: sha512-h5bgJWpxJNswbU7qCrV0tIKQCaS3blPDrqKWx+QxzuzL1zGUzij9XCWLrSLsJPu5t+eWA/ycetzYAO5IOMcWAQ==}
     hasBin: true
 
-  map-like@2.0.0:
-    resolution: {integrity: sha512-CbgcN622YzXC+k9oUroBSPFVX4in/w66mab/zpvSfFeUezSGD8C13c2RetyM1eo1jkp3sKrzvmf2HFEp5QOdZA==}
-
   math-intrinsics@1.1.0:
     resolution: {integrity: sha512-/IXtbwEk5HTPyEwyKX6hGkYXxM9nbj64B+ilVJnC/R6B0pH5G4V3b0pVbL7DBj4tkhBAppbQUlf6F6Xl9LHu1g==}
     engines: {node: '>= 0.4'}
@@ -1198,12 +1168,6 @@ packages:
   path-to-regexp@0.1.13:
     resolution: {integrity: sha512-A/AGNMFN3c8bOlvV9RreMdrv7jsmF9XIfDeCd87+I8RNg6s78BhJxMu69NEMHBSJFxKidViTEdruRwEk/WIKqA==}
 
-  performance-mark-metadata@1.0.3:
-    resolution: {integrity: sha512-bxLWj5OE7jJPKz9HEROqVik/CcE2Jwdjrpq+dI2Fn5xNJqS1Yltdo2LtXO/vwUyZNG/q7Yp7YqlGnBk5d3Bz5A==}
-
-  performance-now@2.1.0:
-    resolution: {integrity: sha512-7EAHlyLHI56VEIdK57uwHdHKIaAGbnXPiw0yWbarQZOKaKpvUIgW0jWRVLiatnM+XXlSwsanIBH/hzGMJulMow==}
-
   picocolors@1.1.1:
     resolution: {integrity: sha512-xceH2snhtb5M9liqDsmEw56le376mTZkEX/jEb/RxNFyegNul7eNslCXP9FDj/Lcu0X8KEyMceP2ntpaHrDEVA==}
 
@@ -1255,9 +1219,6 @@ packages:
   qs@6.15.2:
     resolution: {integrity: sha512-Rzq0KEyX/w/tEybncDgdkZrJgVUsUMk3xjh3t5bv3S1HTAtg+uOYt72+ZfwiQwKdysThkTBdL/rTi6HDmX9Ddw==}
     engines: {node: '>=0.6'}
-
-  raf@3.4.1:
-    resolution: {integrity: sha512-Sq4CW4QhwOHE8ucn6J34MqtZCeWFP2aQSmrlroYgqAV1PjStIhJXxYuTgUIfkEk7zTLjmIjLmU5q+fbD1NnOJA==}
 
   range-parser@1.2.1:
     resolution: {integrity: sha512-Hrgsx+orqoygnmhFbKaHE6c296J+HTAQXoxEF6gNupROmmGJRoyzfG3ccAveqCBrwr/2yxQ5BVd/GTl5agOwSg==}
@@ -1351,9 +1312,6 @@ packages:
 
   reselect@5.2.0:
     resolution: {integrity: sha512-AgZ3UOZm3YndfrJ4OYjgrT7bmCm/1iqkjvEfH/oYjzh6PD2qw4QuT3jjnXIrpdt4MTpMXclMT3lXbmRY+XRakw==}
-
-  resolve@1.1.7:
-    resolution: {integrity: sha512-9znBF0vBcaSN3W2j7wKvdERPwqTxSpCq+if5C0WoTCyV9n24rua28jeuQ2pL/HOf+yUe/Mef+H/5p60K0Id3bg==}
 
   rimraf@2.7.1:
     resolution: {integrity: sha512-uWjbaKIK3T1OSVptzX7Nl6PvQ3qAGtKEtVRjRuazjfL3Bx5eI409VZSqgND+4UNnmzLVdPj9FqFJNPqBZFve4w==}
@@ -1471,9 +1429,6 @@ packages:
   toidentifier@1.0.1:
     resolution: {integrity: sha512-o5sSPKEkg/DIQNmH43V0/uerLrpzVedkUh8tGNvaeXpfpuwjKenlSox/2O/BTlZUtEe+JG7s5YhEz608PlAHRA==}
     engines: {node: '>=0.6'}
-
-  tracealyzer@0.9.3:
-    resolution: {integrity: sha512-VsRj9s56SMomSn3xCKAAjZgVkSN/eFEEyLECAoaZJY5+ILj3QhsoC2YK82E2t5WpZsvePKDfz0Eo/z9kIVa7cg==}
 
   tslib@2.8.1:
     resolution: {integrity: sha512-oJFu94HQb+KVduSUQL7wnpmqnfmLsOA/nAh6b6EH0wCEoK0/mPeXU6c3wKDV83MkOuHPRHtSXKKU99IBazS/2w==}
@@ -1767,8 +1722,6 @@ snapshots:
 
   '@rolldown/pluginutils@1.0.1': {}
 
-  '@solidjs/signals@0.9.3': {}
-
   '@standard-schema/spec@1.1.0': {}
 
   '@standard-schema/utils@0.3.0': {}
@@ -1836,8 +1789,6 @@ snapshots:
       hoist-non-react-statics: 3.3.2
 
   '@types/http-errors@2.0.5': {}
-
-  '@types/lodash@4.17.24': {}
 
   '@types/mime@1.3.5': {}
 
@@ -2007,8 +1958,6 @@ snapshots:
 
   chance@1.1.13: {}
 
-  chrome-devtools-frontend@1.0.445684: {}
-
   cli-table2@0.2.0:
     dependencies:
       lodash: 3.10.1
@@ -2097,11 +2046,6 @@ snapshots:
   destroy@1.2.0: {}
 
   detect-libc@2.1.2: {}
-
-  devtools-timeline-model@1.4.0:
-    dependencies:
-      chrome-devtools-frontend: 1.0.445684
-      resolve: 1.1.7
 
   dom-accessibility-api@0.5.16: {}
 
@@ -2235,11 +2179,6 @@ snapshots:
       is-callable: 1.2.7
 
   forwarded@0.2.0: {}
-
-  fps-emitter@1.0.0:
-    dependencies:
-      inherits: 2.0.4
-      raf: 3.4.1
 
   fresh@0.5.2: {}
 
@@ -2483,8 +2422,6 @@ snapshots:
 
   lz-string@1.5.0: {}
 
-  map-like@2.0.0: {}
-
   math-intrinsics@1.1.0: {}
 
   maximatch@0.1.0:
@@ -2564,12 +2501,6 @@ snapshots:
 
   path-to-regexp@0.1.13: {}
 
-  performance-mark-metadata@1.0.3:
-    dependencies:
-      map-like: 2.0.0
-
-  performance-now@2.1.0: {}
-
   picocolors@1.1.1: {}
 
   picomatch@4.0.4: {}
@@ -2614,10 +2545,6 @@ snapshots:
   qs@6.15.2:
     dependencies:
       side-channel: 1.1.0
-
-  raf@3.4.1:
-    dependencies:
-      performance-now: 2.1.0
 
   range-parser@1.2.1: {}
 
@@ -2665,7 +2592,6 @@ snapshots:
 
   react-redux@file:.yalc/react-redux(@types/react@19.2.15)(react@19.2.6)(redux@5.0.1):
     dependencies:
-      '@solidjs/signals': 0.9.3
       '@types/use-sync-external-store': 0.0.6
       react: 19.2.6
       use-sync-external-store: 1.6.0(react@19.2.6)
@@ -2705,8 +2631,6 @@ snapshots:
   require-directory@2.1.1: {}
 
   reselect@5.2.0: {}
-
-  resolve@1.1.7: {}
 
   rimraf@2.7.1:
     dependencies:
@@ -2869,10 +2793,6 @@ snapshots:
       picomatch: 4.0.4
 
   toidentifier@1.0.1: {}
-
-  tracealyzer@0.9.3:
-    dependencies:
-      devtools-timeline-model: 1.4.0
 
   tslib@2.8.1:
     optional: true
