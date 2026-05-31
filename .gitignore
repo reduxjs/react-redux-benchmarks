@@ -73,5 +73,6 @@ typings/
 runs/
 dist/
 build/
+profiles/
 
 !.yalc/react-redux/dist/
