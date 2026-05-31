@@ -77,6 +77,9 @@ importers:
       seedrandom:
         specifier: ^3.0.5
         version: 3.0.5
+      source-map-js:
+        specifier: ^1.2.1
+        version: 1.2.1
       tsx:
         specifier: ^4.19.2
         version: 4.22.3
@@ -418,6 +421,9 @@ packages:
 
   '@rolldown/pluginutils@1.0.1':
     resolution: {integrity: sha512-2j9bGt5Jh8hj+vPtgzPtl72j0yRxHAyumoo6TNfAjsLB04UtpSvPbPcDcBMxz7n+9CYB0c1GxQFxYRg2jimqGw==}
+
+  '@solidjs/signals@0.9.3':
+    resolution: {integrity: sha512-mb8MfIPy2sKuAJEurfC0BeU/yLruNIlt6QBsF0kOPkui1Xq/n9vfVIy19JbGA5jRpXM2Cb+JJe8WPLUznI263A==}
 
   '@standard-schema/spec@1.1.0':
     resolution: {integrity: sha512-l2aFy5jALhniG5HgqrD6jXLi/rUWrKvqN/qJx6yoJsgKhblVd+iqqU4RCXavm/jPityDo5TCvKMnpjKnOriy0w==}
@@ -1722,6 +1728,8 @@ snapshots:
 
   '@rolldown/pluginutils@1.0.1': {}
 
+  '@solidjs/signals@0.9.3': {}
+
   '@standard-schema/spec@1.1.0': {}
 
   '@standard-schema/utils@0.3.0': {}
@@ -2592,6 +2600,7 @@ snapshots:
 
   react-redux@file:.yalc/react-redux(@types/react@19.2.15)(react@19.2.6)(redux@5.0.1):
     dependencies:
+      '@solidjs/signals': 0.9.3
       '@types/use-sync-external-store': 0.0.6
       react: 19.2.6
       use-sync-external-store: 1.6.0(react@19.2.6)

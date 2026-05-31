@@ -46,6 +46,7 @@
     "redux": "^5.0.0",
     "reselect": "^5.0.0",
     "seedrandom": "^3.0.5",
+    "source-map-js": "^1.2.1",
     "tsx": "^4.19.2",
     "use-sync-external-store": "latest",
     "yargs": "^17"
