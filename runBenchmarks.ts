@@ -348,68 +348,76 @@ function printBenchmarkResults(
   versionPerfEntries: Record<string, BenchmarkStats>,
   showProfile: boolean
 ) {
-  console.log(`\nResults for benchmark ${benchmark}:`)
+  console.log(`\n${chalk.bold.underline(benchmark)}`)
+  console.log(chalk.dim('  All times in ms'))
 
-  const head = [
-    'Version',
-    'Script\n(ms)',
-    'Task\n(ms)',
-    'Layout\n(ms)',
-    'Style\n(ms)',
-    'Mount\n(ms)',
-    'Avg Upd\n(ms)',
-    'p95 Upd\n(ms)',
-    'Renders',
-    'Dispatches\n(avg ms)',
-  ]
+  const versions = Object.keys(versionPerfEntries).sort()
+  const colAligns = ['left', ...Array(10).fill('right')] as (
+    | 'left'
+    | 'right'
+  )[]
 
-  if (showProfile) {
-    head.push(
-      'react-dom\n(ms)',
-      'react\n(ms)',
-      'react-redux\n(ms)',
-      'redux/tk\n(ms)',
-      'app\n(ms)'
-    )
+  // CDP table
+  const cdpTable: any = new Table({
+    head: ['Version', 'Script', 'Task', 'Layout', 'Wall'],
+    style: { head: ['red'] },
+    colAligns,
+  })
+  for (const version of versions) {
+    const s = versionPerfEntries[version]
+    cdpTable.push([
+      version,
+      s.cdp.scriptDuration.toFixed(0),
+      s.cdp.taskDuration.toFixed(0),
+      s.cdp.layoutDuration.toFixed(0),
+      s.wallTime.toFixed(0),
+    ])
   }
+  console.log(cdpTable.toString())
 
-  const table: any = new Table({ head })
+  // React table
+  const reactTable: any = new Table({
+    head: ['Version', 'Mount', 'Avg Upd', 'p95 Upd', 'Renders', 'Dispatches (avg)'],
+    style: { head: ['red'] },
+    colAligns,
+  })
+  for (const version of versions) {
+    const s = versionPerfEntries[version]
+    reactTable.push([
+      version,
+      s.react.mountTime?.toFixed(1) ?? 'N/A',
+      s.react.avgUpdateTime?.toFixed(1) ?? 'N/A',
+      s.react.p95UpdateTime?.toFixed(1) ?? 'N/A',
+      s.react.renderCount,
+      `${s.dispatch.count} (${s.dispatch.avgTime.toFixed(2)})`,
+    ])
+  }
+  console.log(reactTable.toString())
 
-  Object.keys(versionPerfEntries)
-    .sort()
-    .forEach((version) => {
-      const stats = versionPerfEntries[version]
-
-      const row: (string | number)[] = [
-        version,
-        stats.cdp.scriptDuration.toFixed(0),
-        stats.cdp.taskDuration.toFixed(0),
-        stats.cdp.layoutDuration.toFixed(0),
-        stats.cdp.styleDuration.toFixed(0),
-        stats.react.mountTime?.toFixed(1) ?? 'N/A',
-        stats.react.avgUpdateTime?.toFixed(1) ?? 'N/A',
-        stats.react.p95UpdateTime?.toFixed(1) ?? 'N/A',
-        stats.react.renderCount,
-        `${stats.dispatch.count} (${stats.dispatch.avgTime.toFixed(2)})`,
-      ]
-
-      if (showProfile && stats.moduleBreakdown) {
-        const mb = stats.moduleBreakdown
-        row.push(
+  // Profile table (only when --profile)
+  if (showProfile) {
+    const profileTable: any = new Table({
+      head: ['Version', 'react-dom', 'react', 'react-redux', 'redux/tk', 'app'],
+      style: { head: ['red'] },
+      colAligns,
+    })
+    for (const version of versions) {
+      const mb = versionPerfEntries[version].moduleBreakdown
+      if (mb) {
+        profileTable.push([
+          version,
           mb['react-dom'].toFixed(0),
           mb.react.toFixed(0),
           mb['react-redux'].toFixed(0),
           mb['redux/toolkit'].toFixed(0),
-          mb.app.toFixed(0)
-        )
-      } else if (showProfile) {
-        row.push('N/A', 'N/A', 'N/A', 'N/A', 'N/A')
+          mb.app.toFixed(0),
+        ])
+      } else {
+        profileTable.push([version, 'N/A', 'N/A', 'N/A', 'N/A', 'N/A'])
       }
-
-      table.push(row)
-    })
-
-  console.log(table.toString())
+    }
+    console.log(profileTable.toString())
+  }
 }
 
 function saveCpuProfile(
