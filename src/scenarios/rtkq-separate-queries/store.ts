@@ -16,8 +16,6 @@ export const store = configureStore({
       .prepend(listenerMiddleware.middleware)
       .concat(api.middleware)
   },
-  enhancers: (existingEnhancers) =>
-    existingEnhancers.concat(autoBatchEnhancer({ type: 'raf' })),
 })
 
 export type RootState = ReturnType<typeof store.getState>
