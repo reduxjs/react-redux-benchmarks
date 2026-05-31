@@ -3,8 +3,6 @@ import { createRoot } from 'react-dom/client'
 import { Store } from 'redux'
 import { Provider } from 'react-redux'
 
-import './fps-emit'
-
 // eslint-disable-next-line import/no-dynamic-require, global-require
 // const { App, store } = require(`./scenarios/${process.env.NAME!}`)
 

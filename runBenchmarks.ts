@@ -5,14 +5,12 @@ import path from 'path'
 import playwright from 'playwright'
 import fs from 'fs'
 import Table from 'cli-table2'
-import _ from 'lodash'
 import glob from 'glob'
 import yargs from 'yargs/yargs'
 import chalk from 'chalk'
 
 import {
   capturePageStats,
-  ProcessedFPSEntry,
   runServer,
   PageStatsResult,
   RenderResult,
@@ -47,12 +45,6 @@ const args = yargs(process.argv.slice(2))
     type: 'number',
     default: 30,
   })
-  .option('trace', {
-    alias: 't',
-    describe: 'Include Chrome perf tracing results',
-    type: 'boolean',
-    default: false,
-  })
   .option('headless', {
     describe: 'Run Chrome in headless mode (default: true)',
     type: 'boolean',
@@ -61,127 +53,40 @@ const args = yargs(process.argv.slice(2))
   .help('h')
   .alias('h', 'help')
 
-// Given an array of items such as ["a", "b", "c", "d"], return the pairwise entries
-// in the form [ ["a","b"], ["b","c"], ["c","d"] ]
-function pairwise<T>(list: T[]): [T, T][] {
-  // Create a new list offset by 1
-  // @ts-ignore
-  const allButFirst: T[] = _.rest(list)
-  // Pair up entries at each index
-  const zipped = _.zip(list, allButFirst)
-  // Remove last entry, as there's a mismatch from the offset
-  const pairwiseEntries = _.initial(zipped) as [T, T][]
-  return pairwiseEntries
-}
-
-function printBenchmarkResults(benchmark, versionPerfEntries, trace) {
-  console.log(`\nResults for benchmark ${benchmark}:`)
-
-  let traceCategories: string[] = []
-
-  if (trace) {
-    traceCategories = ['Scripting', 'Rendering', 'Painting']
+interface BenchmarkStats {
+  cdp: {
+    scriptDuration: number
+    taskDuration: number
+    layoutDuration: number
+    styleDuration: number
   }
-
-  const table: any = new Table({
-    head: [
-      'Version',
-      'Avg FPS',
-      'Render\n(Mount, Avg)',
-      ...traceCategories,
-      'FPS Values',
-    ],
-  })
-
-  Object.keys(versionPerfEntries)
-    .sort()
-    .forEach((version) => {
-      const versionResults = versionPerfEntries[version]
-
-      const { fps, profile, mountTime, averageUpdateTime } = versionResults
-
-      let traceResults: number[] = []
-
-      if (trace) {
-        traceResults = [
-          profile.categories.scripting.toFixed(2),
-          profile.categories.rendering.toFixed(2),
-          profile.categories.painting.toFixed(2),
-        ]
-      }
-
-      const fpsNumbers = fps.values.map((entry) => entry.FPS)
-
-      table.push([
-        version,
-        fps.weightedFPS.toFixed(2),
-        `${mountTime?.toFixed(1)}, ${averageUpdateTime?.toFixed(1)}`,
-        ...traceResults,
-        fpsNumbers.toString(),
-      ])
-    })
-
-  console.log(table.toString())
+  react: {
+    mountTime: number | null
+    avgUpdateTime: number | null
+    renderCount: number
+  }
+  dispatch: {
+    count: number
+    totalTime: number
+    avgTime: number
+  }
+  wallTime: number
 }
 
 function calculateBenchmarkStats(
-  fpsRunResults: {
-    fpsValues: ProcessedFPSEntry[]
-    start: number
-    end: number
-    reactTimingEntries: RenderResult[]
-  },
-  categories: string[],
-  traceRunResults,
-  trace: boolean
-) {
-  const { fpsValues, start, end } = fpsRunResults
+  results: PageStatsResult
+): BenchmarkStats {
+  const { cdpMetrics, dispatchStats, reactTimingEntries, wallTime } = results
 
-  if (trace) {
-    categories = traceRunResults.traceMetrics.profiling.categories
+  // CDP metrics (seconds from CDP, convert to ms for display)
+  const cdp = {
+    scriptDuration: cdpMetrics.ScriptDuration * 1000,
+    taskDuration: cdpMetrics.TaskDuration * 1000,
+    layoutDuration: cdpMetrics.LayoutDuration * 1000,
+    styleDuration: cdpMetrics.RecalcStyleDuration * 1000,
   }
 
-  // skip first value = it's usually way lower due to page startup
-  const fpsValuesWithoutFirst = fpsValues.slice(1)
-  const lastEntry = _.last(fpsValues)
-
-  const averageFPS =
-    fpsValuesWithoutFirst.reduce((sum, entry) => sum + entry.FPS, 0) /
-      fpsValuesWithoutFirst.length || 1
-
-  const pairwiseEntries = pairwise(fpsValuesWithoutFirst)
-
-  const fpsValuesWithDurations = pairwiseEntries.map((pair) => {
-    const [first, second] = pair
-    const duration = second.timestamp - first.timestamp
-    const durationSeconds = duration / 1000.0
-
-    return { FPS: first.FPS, durationSeconds, weightedFPS: 0 }
-  })
-
-  const sums = fpsValuesWithDurations.reduce(
-    (prev, current) => {
-      const weightedFPS = current.FPS * current.durationSeconds
-
-      return {
-        FPS: current.FPS,
-        weightedFPS: prev.weightedFPS + weightedFPS,
-        durationSeconds: prev.durationSeconds + current.durationSeconds,
-      }
-    },
-    { FPS: 0, weightedFPS: 0, durationSeconds: 0 } as {
-      FPS: number
-      weightedFPS: number
-      durationSeconds: number
-    }
-  )
-
-  const weightedFPS = sums.weightedFPS / sums.durationSeconds
-
-  const fps = { averageFPS, weightedFPS, values: fpsValuesWithoutFirst }
-
-  const { reactTimingEntries } = fpsRunResults
-
+  // React Profiler
   const [mountEntry, ...updateEntries] = reactTimingEntries
 
   if (!mountEntry) {
@@ -192,26 +97,80 @@ function calculateBenchmarkStats(
     )
   }
 
-  const mountTime = mountEntry?.actualTime
+  const mountTime = mountEntry?.actualTime ?? null
 
-  const averageUpdateTime =
-    updateEntries?.reduce((sum, entry) => sum + entry.actualTime, 0) /
-      updateEntries?.length || 1
+  const avgUpdateTime =
+    updateEntries.length > 0
+      ? updateEntries.reduce((sum, entry) => sum + entry.actualTime, 0) /
+        updateEntries.length
+      : null
 
-  return { fps, profile: { categories }, mountTime, averageUpdateTime }
+  const react = {
+    mountTime,
+    avgUpdateTime,
+    renderCount: reactTimingEntries.length,
+  }
+
+  // Dispatch timing
+  const dispatch = {
+    count: dispatchStats.count,
+    totalTime: dispatchStats.totalTime,
+    avgTime: dispatchStats.avgTime,
+  }
+
+  return { cdp, react, dispatch, wallTime }
+}
+
+function printBenchmarkResults(
+  benchmark: string,
+  versionPerfEntries: Record<string, BenchmarkStats>
+) {
+  console.log(`\nResults for benchmark ${benchmark}:`)
+
+  const table: any = new Table({
+    head: [
+      'Version',
+      'Script\n(ms)',
+      'Task\n(ms)',
+      'Layout\n(ms)',
+      'Style\n(ms)',
+      'Mount\n(ms)',
+      'Avg Upd\n(ms)',
+      'Renders',
+      'Dispatches\n(avg ms)',
+    ],
+  })
+
+  Object.keys(versionPerfEntries)
+    .sort()
+    .forEach((version) => {
+      const stats = versionPerfEntries[version]
+
+      table.push([
+        version,
+        stats.cdp.scriptDuration.toFixed(0),
+        stats.cdp.taskDuration.toFixed(0),
+        stats.cdp.layoutDuration.toFixed(0),
+        stats.cdp.styleDuration.toFixed(0),
+        stats.react.mountTime?.toFixed(1) ?? 'N/A',
+        stats.react.avgUpdateTime?.toFixed(1) ?? 'N/A',
+        stats.react.renderCount,
+        `${stats.dispatch.count} (${stats.dispatch.avgTime.toFixed(2)})`,
+      ])
+    })
+
+  console.log(table.toString())
 }
 
 async function runBenchmarks({
   scenarios,
   versions,
   length,
-  trace,
   headless,
 }: {
   scenarios: string[]
   versions: string[]
   length: number
-  trace: boolean
   headless: boolean
 }) {
   console.log('Scenarios: ', scenarios)
@@ -219,7 +178,7 @@ async function runBenchmarks({
   const server = await runServer(9999, distFolder)
 
   for (let scenario of scenarios) {
-    const versionPerfEntries = {}
+    const versionPerfEntries: Record<string, BenchmarkStats> = {}
 
     console.log(`Running scenario ${scenario}`)
 
@@ -227,7 +186,6 @@ async function runBenchmarks({
       console.log(`  React-Redux version: ${version}`)
       const browser = await playwright.chromium.launch({
         headless,
-        tracesDir: './traces',
       })
 
       const folderPath = path.join(distFolder, version, scenario)
@@ -241,38 +199,14 @@ async function runBenchmarks({
 
       const URL = `http://localhost:9999/${version}/${scenario}`
       try {
-        console.log(`    Checking max FPS... (${length} seconds)`)
-        const fpsRunResults = await capturePageStats(
+        console.log(`    Running benchmark... (${length} seconds)`)
+        const results = await capturePageStats(
           browser,
           URL,
-          null,
           length * 1000
         )
 
-        let traceRunResults: PageStatsResult | undefined
-        let categories: string[] = []
-
-        if (trace) {
-          console.log(`    Running trace...    (${length} seconds)`)
-          // const traceFilename = path.join(
-          //   './runs',
-          //   `trace-${scenario}-${version}`
-          // )
-          const traceFilename = `trace-${scenario}-${version}`
-          traceRunResults = await capturePageStats(
-            browser,
-            URL,
-            traceFilename,
-            length * 1000
-          )
-        }
-
-        versionPerfEntries[version] = calculateBenchmarkStats(
-          fpsRunResults,
-          categories,
-          traceRunResults,
-          trace
-        )
+        versionPerfEntries[version] = calculateBenchmarkStats(results)
       } catch (e) {
         console.error(e)
         process.exit(-1)
@@ -280,7 +214,7 @@ async function runBenchmarks({
         await browser.close()
       }
     }
-    printBenchmarkResults(scenario, versionPerfEntries, trace)
+    printBenchmarkResults(scenario, versionPerfEntries)
   }
 
   server.close()
