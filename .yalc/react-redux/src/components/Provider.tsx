@@ -1,14 +1,16 @@
 import type { Context, ReactNode } from 'react'
-import React, { useMemo } from 'react'
-import type { ReactReduxContextValue } from './Context'
-import { ReactReduxContext } from './Context'
+import { React } from '../utils/react'
+import type { Action, Store, UnknownAction } from 'redux'
+import type { DevModeCheckFrequency } from '../hooks/useSelector'
 import { createSubscription } from '../utils/Subscription'
 import { useIsomorphicLayoutEffect } from '../utils/useIsomorphicLayoutEffect'
-import type { Action, AnyAction, Store } from 'redux'
-import type { CheckFrequency } from '../hooks/useSelector'
-import { createNode, updateNode } from '../utils/autotracking/proxy'
+import type { ReactReduxContextValue } from './Context'
+import { ReactReduxContext } from './Context'
 
-export interface ProviderProps<A extends Action = AnyAction, S = unknown> {
+export interface ProviderProps<
+  A extends Action<string> = UnknownAction,
+  S = unknown,
+> {
   /**
    * The single Redux store in your application.
    */
@@ -22,46 +24,64 @@ export interface ProviderProps<A extends Action = AnyAction, S = unknown> {
   /**
    * Optional context to be used internally in react-redux. Use React.createContext() to create a context to be used.
    * If this is used, you'll need to customize `connect` by supplying the same context provided to the Provider.
-   * Initial value doesn't matter, as it is overwritten with the internal state of Provider.
+   * Set the initial value to null, and the hooks will error
+   * if this is not overwritten by Provider.
    */
-  context?: Context<ReactReduxContextValue<S, A>>
+  context?: Context<ReactReduxContextValue<S, A> | null>
 
-  /** Global configuration for the `useSelector` stability check */
-  stabilityCheck?: CheckFrequency
+  /**
+   * Determines the frequency of stability checks for all selectors.
+   * This setting overrides the global configuration for
+   * the `useSelector` stability check, allowing you to specify how often
+   * these checks should occur in development mode.
+   *
+   * @since 8.1.0
+   */
+  stabilityCheck?: DevModeCheckFrequency
 
-  /** Global configuration for the `useSelector` no-op check */
-  noopCheck?: CheckFrequency
+  /**
+   * Determines the frequency of identity function checks for all selectors.
+   * This setting overrides the global configuration for
+   * the `useSelector` identity function check, allowing you to specify how often
+   * these checks should occur in development mode.
+   *
+   * **Note**: Previously referred to as `noopCheck`.
+   *
+   * @since 9.0.0
+   */
+  identityFunctionCheck?: DevModeCheckFrequency
 
   children: ReactNode
 }
 
-function Provider<A extends Action = AnyAction, S = unknown>({
-  store,
-  context,
-  children,
-  serverState,
-  stabilityCheck = 'once',
-  noopCheck = 'once',
-}: ProviderProps<A, S>) {
-  const contextValue: ReactReduxContextValue = useMemo(() => {
-    const trackingNode = createNode(store.getState() as any)
-    //console.log('Created tracking node: ', trackingNode)
-    const subscription = createSubscription(
-      store as any,
-      undefined,
-      trackingNode
-    )
-    return {
-      store: store as any,
+function Provider<A extends Action<string> = UnknownAction, S = unknown>(
+  providerProps: ProviderProps<A, S>,
+) {
+  const { children, context, serverState, store } = providerProps
+
+  const contextValue = React.useMemo(() => {
+    const subscription = createSubscription(store)
+
+    const baseContextValue = {
+      store,
       subscription,
       getServerState: serverState ? () => serverState : undefined,
-      stabilityCheck,
-      noopCheck,
-      trackingNode,
     }
-  }, [store, serverState, stabilityCheck, noopCheck])
 
-  const previousState = useMemo(() => store.getState(), [store])
+    if (process.env.NODE_ENV === 'production') {
+      return baseContextValue
+    } else {
+      const { identityFunctionCheck = 'once', stabilityCheck = 'once' } =
+        providerProps
+
+      return /* @__PURE__ */ Object.assign(baseContextValue, {
+        stabilityCheck,
+        identityFunctionCheck,
+      })
+    }
+  }, [store, serverState])
+
+  const previousState = React.useMemo(() => store.getState(), [store])
 
   useIsomorphicLayoutEffect(() => {
     const { subscription } = contextValue
@@ -79,7 +99,6 @@ function Provider<A extends Action = AnyAction, S = unknown>({
 
   const Context = context || ReactReduxContext
 
-  // @ts-ignore 'AnyAction' is assignable to the constraint of type 'A', but 'A' could be instantiated with a different subtype
   return <Context.Provider value={contextValue}>{children}</Context.Provider>
 }
 

@@ -1,5 +1,4 @@
 import React, { useLayoutEffect } from 'react'
-import { render } from 'react-dom'
 import { Provider } from 'react-redux'
 import { createStore, combineReducers, AnyAction } from 'redux'
 // @ts-ignore

@@ -4,37 +4,37 @@ import { createInvalidArgFactory } from './invalidArgFactory'
 import type { MergeProps } from './selectorFactory'
 import type { EqualityFn } from '../types'
 
-export function defaultMergeProps<
+function defaultMergeProps<
   TStateProps,
   TDispatchProps,
   TOwnProps,
-  TMergedProps
+  TMergedProps,
 >(
   stateProps: TStateProps,
   dispatchProps: TDispatchProps,
-  ownProps: TOwnProps
+  ownProps: TOwnProps,
 ): TMergedProps {
   // @ts-ignore
   return { ...ownProps, ...stateProps, ...dispatchProps }
 }
 
-export function wrapMergePropsFunc<
+function wrapMergePropsFunc<
   TStateProps,
   TDispatchProps,
   TOwnProps,
-  TMergedProps
+  TMergedProps,
 >(
-  mergeProps: MergeProps<TStateProps, TDispatchProps, TOwnProps, TMergedProps>
+  mergeProps: MergeProps<TStateProps, TDispatchProps, TOwnProps, TMergedProps>,
 ): (
-  dispatch: Dispatch<Action<unknown>>,
+  dispatch: Dispatch<Action<string>>,
   options: {
     readonly displayName: string
     readonly areMergedPropsEqual: EqualityFn<TMergedProps>
-  }
+  },
 ) => MergeProps<TStateProps, TDispatchProps, TOwnProps, TMergedProps> {
   return function initMergePropsProxy(
     dispatch,
-    { displayName, areMergedPropsEqual }
+    { displayName, areMergedPropsEqual },
   ) {
     let hasRunOnce = false
     let mergedProps: TMergedProps
@@ -42,7 +42,7 @@ export function wrapMergePropsFunc<
     return function mergePropsProxy(
       stateProps: TStateProps,
       dispatchProps: TDispatchProps,
-      ownProps: TOwnProps
+      ownProps: TOwnProps,
     ) {
       const nextMergedProps = mergeProps(stateProps, dispatchProps, ownProps)
 
@@ -66,13 +66,13 @@ export function mergePropsFactory<
   TStateProps,
   TDispatchProps,
   TOwnProps,
-  TMergedProps
+  TMergedProps,
 >(
-  mergeProps?: MergeProps<TStateProps, TDispatchProps, TOwnProps, TMergedProps>
+  mergeProps?: MergeProps<TStateProps, TDispatchProps, TOwnProps, TMergedProps>,
 ) {
   return !mergeProps
     ? () => defaultMergeProps
     : typeof mergeProps === 'function'
-    ? wrapMergePropsFunc(mergeProps)
-    : createInvalidArgFactory(mergeProps, 'mergeProps')
+      ? wrapMergePropsFunc(mergeProps)
+      : createInvalidArgFactory(mergeProps, 'mergeProps')
 }

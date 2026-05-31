@@ -6,7 +6,7 @@
   "scripts": {
     "start": "tsx ./runBenchmarks.ts",
     "format": "prettier --write \"sources/**/src/*.{js,jsx,ts,tsx}\" *.js",
-    "build": "node scripts/cli.js"
+    "build": "tsx scripts/build.ts"
   },
   "repository": {
     "type": "git",
@@ -24,10 +24,10 @@
   },
   "homepage": "https://github.com/reduxjs/react-redux-benchmarks#readme",
   "dependencies": {
-    "@reduxjs/toolkit": "^1.9.5",
-    "@replayio/playwright": "^1.0.3",
+    "@reduxjs/toolkit": "^2.5.0",
     "@testing-library/dom": "^8.5.0",
     "@testing-library/user-event": "^13.2.1",
+    "@types/yargs": "^17",
     "chalk": "4.1.2",
     "chance": "^1.1.8",
     "cli-table2": "^0.2.0",
@@ -37,22 +37,21 @@
     "fps-emitter": "^1.0.0",
     "glob": "^7.1.3",
     "performance-mark-metadata": "^1.0.3",
-    "playwright": "^1.35.1",
-    "react": "^18.2.0",
-    "react-dom": "^18.2.0",
-    "react-redux": "^8.1.0",
-    "react-redux-5.1.2": "npm:react-redux@5.1.2",
-    "react-redux-6.0.1": "npm:react-redux@6.0.1",
-    "react-redux-7.2.5": "npm:react-redux@7.2.5",
-    "react-redux-8.1.0-autotracking": "file:.yalc/react-redux",
+    "playwright": "^1.49.1",
+    "react": "^19.2.0",
+    "react-dom": "^19.2.0",
+    "react-redux": "file:.yalc/react-redux",
     "react-redux-8.1.1": "npm:react-redux@8.1.1",
+    "react-redux-9.2.0": "npm:react-redux@9.2.0",
+    "react-redux-9.2.0-shallow-checks": "file:.yalc/react-redux",
     "recursive-copy": "^2.0.9",
-    "redux": "^4.1.1",
-    "reselect": "^4.0.0",
+    "redux": "^5.0.0",
+    "reselect": "^5.0.0",
     "seedrandom": "^3.0.5",
     "tracealyzer": "^0.9.3",
-    "tsx": "^3.12.7",
-    "use-sync-external-store": "latest"
+    "tsx": "^4.19.2",
+    "use-sync-external-store": "latest",
+    "yargs": "^17"
   },
   "devDependencies": {
     "@types/cli-table2": "^0.2.3",
@@ -60,13 +59,13 @@
     "@types/fs-extra": "^9.0.12",
     "@types/glob": "^8.1.0",
     "@types/lodash": "^4.14.195",
-    "@types/react": "^17.0.21",
-    "@types/react-dom": "^17.0.9",
-    "esbuild": "^0.17",
-    "esbuild-plugin-alias": "^0.1.2",
+    "@types/node": "^25.9.1",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "@typescript/native-preview": "beta",
     "fs-extra": "^10.0.0",
     "prettier": "latest",
-    "typescript": "^5.1.0",
-    "yargs": "^17.1.1"
-  }
+    "vite": "^8"
+  },
+  "packageManager": "pnpm@11.0.2"
 }

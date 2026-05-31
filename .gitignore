@@ -7,14 +7,6 @@ yarn-error.log*
 
 
 .cache
-.yarnrc
-.yarn/*
-!.yarn/patches
-!.yarn/releases
-!.yarn/plugins
-!.yarn/sdks
-!.yarn/versions
-.pnp.*
 *.tgz
 
 otherVersions/
@@ -68,7 +60,7 @@ typings/
 # Output of 'npm pack'
 *.tgz
 
-# Yarn Integrity file
+# Yarn Integrity file (legacy)
 .yarn-integrity
 
 # dotenv environment variables file

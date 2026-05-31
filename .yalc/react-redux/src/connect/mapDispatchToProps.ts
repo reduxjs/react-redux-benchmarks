@@ -7,19 +7,19 @@ import type { MapDispatchToPropsParam } from './selectorFactory'
 export function mapDispatchToPropsFactory<TDispatchProps, TOwnProps>(
   mapDispatchToProps:
     | MapDispatchToPropsParam<TDispatchProps, TOwnProps>
-    | undefined
+    | undefined,
 ) {
   return mapDispatchToProps && typeof mapDispatchToProps === 'object'
-    ? wrapMapToPropsConstant((dispatch: Dispatch<Action<unknown>>) =>
+    ? wrapMapToPropsConstant((dispatch: Dispatch<Action<string>>) =>
         // @ts-ignore
-        bindActionCreators(mapDispatchToProps, dispatch)
+        bindActionCreators(mapDispatchToProps, dispatch),
       )
     : !mapDispatchToProps
-    ? wrapMapToPropsConstant((dispatch: Dispatch<Action<unknown>>) => ({
-        dispatch,
-      }))
-    : typeof mapDispatchToProps === 'function'
-    ? // @ts-ignore
-      wrapMapToPropsFunc(mapDispatchToProps, 'mapDispatchToProps')
-    : createInvalidArgFactory(mapDispatchToProps, 'mapDispatchToProps')
+      ? wrapMapToPropsConstant((dispatch: Dispatch<Action<string>>) => ({
+          dispatch,
+        }))
+      : typeof mapDispatchToProps === 'function'
+        ? // @ts-ignore
+          wrapMapToPropsFunc(mapDispatchToProps, 'mapDispatchToProps')
+        : createInvalidArgFactory(mapDispatchToProps, 'mapDispatchToProps')
 }

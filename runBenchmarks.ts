@@ -2,7 +2,6 @@
 'use strict'
 
 import path from 'path'
-import puppeteer from 'puppeteer'
 import playwright from 'playwright'
 import fs from 'fs'
 import Table from 'cli-table2'
@@ -228,6 +227,7 @@ async function runBenchmarks({
       console.log(`  React-Redux version: ${version}`)
       const browser = await playwright.chromium.launch({
         headless,
+        tracesDir: './traces',
       })
 
       const folderPath = path.join(distFolder, version, scenario)
@@ -254,11 +254,11 @@ async function runBenchmarks({
 
         if (trace) {
           console.log(`    Running trace...    (${length} seconds)`)
-          const traceFilename = path.join(
-            __dirname,
-            'runs',
-            `trace-${scenario}-${version}.json`
-          )
+          // const traceFilename = path.join(
+          //   './runs',
+          //   `trace-${scenario}-${version}`
+          // )
+          const traceFilename = `trace-${scenario}-${version}`
           traceRunResults = await capturePageStats(
             browser,
             URL,
