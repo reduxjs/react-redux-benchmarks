@@ -1,0 +1,4 @@
+allowBuilds:
+  esbuild: true
+overrides:
+  "@solidjs/signals": "0.9.3"

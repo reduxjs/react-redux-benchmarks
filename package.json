@@ -67,7 +67,5 @@
     "prettier": "latest",
     "vite": "^8"
   },
-  "resolutions": {
-    "@solidjs/signals": "0.9.3"
-  }
+  "packageManager": "pnpm@11.0.2"
 }
