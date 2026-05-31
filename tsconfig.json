@@ -2,21 +2,15 @@
   "compilerOptions": {
     "strict": true,
     "target": "ESNext",
-    "module": "ESNext",
-    "moduleResolution": "Node",
+    "module": "Node16",
+    "moduleResolution": "Node16",
     "esModuleInterop": true,
     "skipLibCheck": true,
+    "types": ["node"],
     "allowJs": true,
     "jsx": "react",
-    "declaration": true,
-    "emitDeclarationOnly": true,
-    "outDir": "./es",
-    "forceConsistentCasingInFileNames": true,
-    "experimentalDecorators": true,
-    "typeRoots": [
-      "./node_modules/@types",
-      "./types"
-    ]
+    "noEmit": true,
+    "forceConsistentCasingInFileNames": true
   },
   "include": ["src/**/*", "test/**/*", "types"],
   "exclude": ["node_modules", "dist"]
