@@ -18,6 +18,8 @@ import {
   V8CpuProfile,
 } from './utils/server'
 
+import type { InstrumentationStats } from './src/common/instrumentation'
+
 const readFolderNames = (searchDir: string) => {
   return glob.sync('*/', { cwd: searchDir }).map((s) => s.replace('/', ''))
 }
@@ -65,6 +67,12 @@ const args = yargs(process.argv.slice(2))
   })
   .option('save-profiles', {
     describe: 'Save .cpuprofile files to ./profiles/ directory',
+    type: 'boolean',
+    default: false,
+  })
+  .option('instrument', {
+    alias: 'i',
+    describe: 'Collect dispatch-cycle instrumentation (build with --instrument)',
     type: 'boolean',
     default: false,
   })
@@ -266,6 +274,7 @@ interface BenchmarkStats {
   }
   wallTime: number
   moduleBreakdown?: ModuleBreakdown
+  instrumentation?: InstrumentationStats
 }
 
 function calculateBenchmarkStats(
@@ -338,7 +347,10 @@ function calculateBenchmarkStats(
     moduleBreakdown = computeModuleBreakdown(cpuProfile, bundlePath)
   }
 
-  return { cdp, react, dispatch, wallTime, moduleBreakdown }
+  // Instrumentation stats (pass through)
+  const instrumentation = results.instrumentationStats ?? undefined
+
+  return { cdp, react, dispatch, wallTime, moduleBreakdown, instrumentation }
 }
 
 // --- Output ---
@@ -346,7 +358,8 @@ function calculateBenchmarkStats(
 function printBenchmarkResults(
   benchmark: string,
   versionPerfEntries: Record<string, BenchmarkStats>,
-  showProfile: boolean
+  showProfile: boolean,
+  showInstrumentation: boolean
 ) {
   console.log(`\n${chalk.bold.underline(benchmark)}`)
   console.log(chalk.dim('  All times in ms'))
@@ -418,6 +431,40 @@ function printBenchmarkResults(
     }
     console.log(profileTable.toString())
   }
+
+  // Instrumentation table (only when --instrument)
+  if (showInstrumentation) {
+    const hasAnyInst = versions.some(v => versionPerfEntries[v].instrumentation)
+    if (hasAnyInst) {
+      const instTable: any = new Table({
+        head: ['Version', 'Reducer', 'Notify', 'Callbacks', 'Selector', 'Sel#', 'EqCheck', 'Eq#', 'Reconcile', 'Rec#', 'SigSel', 'Sig#'],
+        style: { head: ['cyan'] },
+        colAligns,
+      })
+      for (const version of versions) {
+        const inst = versionPerfEntries[version].instrumentation
+        if (inst) {
+          instTable.push([
+            version,
+            inst.reducerTime.toFixed(1),
+            inst.notifyTime.toFixed(1),
+            inst.callbackCount,
+            inst.selectorTime.toFixed(1),
+            inst.selectorCount,
+            inst.equalityCheckTime.toFixed(1),
+            inst.equalityCheckCount,
+            inst.reconcileTime.toFixed(1),
+            inst.reconcileCount,
+            inst.signalSelectorTime.toFixed(1),
+            inst.signalSelectorCount,
+          ])
+        } else {
+          instTable.push([version, ...Array(11).fill('N/A')])
+        }
+      }
+      console.log(instTable.toString())
+    }
+  }
 }
 
 function saveCpuProfile(
@@ -443,6 +490,7 @@ async function runBenchmarks({
   json: jsonOutput,
   profile: enableProfile,
   'save-profiles': saveProfiles,
+  instrument: enableInstrumentation,
 }: {
   scenarios: string[]
   versions: string[]
@@ -451,6 +499,7 @@ async function runBenchmarks({
   json: boolean
   profile: boolean
   'save-profiles': boolean
+  instrument: boolean
 }) {
   if (!jsonOutput) {
     console.log('Scenarios: ', scenarios)
@@ -501,7 +550,8 @@ async function runBenchmarks({
           browser,
           URL,
           length * 1000,
-          enableProfile
+          enableProfile,
+          enableInstrumentation
         )
 
         if (saveProfiles && results.cpuProfile) {
@@ -521,7 +571,7 @@ async function runBenchmarks({
     }
 
     if (!jsonOutput) {
-      printBenchmarkResults(scenario, versionPerfEntries, enableProfile)
+      printBenchmarkResults(scenario, versionPerfEntries, enableProfile, enableInstrumentation)
     }
 
     allResults[scenario] = versionPerfEntries
