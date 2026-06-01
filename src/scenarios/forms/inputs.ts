@@ -1,25 +1,30 @@
-import { createSlice } from '@reduxjs/toolkit'
-import * as c from './constants'
+import { createSlice, PayloadAction } from '@reduxjs/toolkit'
 import userEvent from '@testing-library/user-event'
+import * as c from './constants'
 
-const { reducer, actions } = createSlice({
-  initialState: {},
+type FormsState = Record<number, string>
+
+const inputsSlice = createSlice({
+  initialState: {} as FormsState,
   name: 'inputs',
   reducers: {
-    initialize(state, action) {
+    initialize(state, action: PayloadAction<{ numberOfInputs: number }>) {
       const { numberOfInputs } = action.payload
       for (let i = 0; i < numberOfInputs; i++) {
         state[i] = ''
       }
     },
-    updateInput(state, action) {
+    updateInput(
+      state,
+      action: PayloadAction<{ inputId: number; text: string }>
+    ) {
       const { inputId, text } = action.payload
       state[inputId] = text
     },
   },
 })
 
-export const { initialize, updateInput } = actions
+export const { initialize, updateInput } = inputsSlice.actions
 
 const BOB_ROSS_IPSUM = `
 Little short strokes. And I know you're saying, 'Oh Bob, you've done it this 
@@ -33,9 +38,9 @@ export function typeTextInRandomInput() {
   const inputId = Math.floor(Math.random() * c.NUMBER_OF_INPUTS)
   console.log('Input id: ', inputId)
 
-  const input = document.getElementById(`input-${inputId}`)
+  const input = document.getElementById(`input-${inputId}`)!
 
   return userEvent.type(input, BOB_ROSS_IPSUM, { delay: 25 })
 }
 
-export default reducer
+export default inputsSlice.reducer

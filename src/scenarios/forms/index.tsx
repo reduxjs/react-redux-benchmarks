@@ -1,6 +1,5 @@
 import React, { useLayoutEffect } from 'react'
-import ReactDOM from 'react-dom'
-import { configureStore, AnyAction } from '@reduxjs/toolkit'
+import { configureStore } from '@reduxjs/toolkit'
 
 import { renderApp } from '../../common'
 import { dispatchTimingMiddleware } from '../../common/dispatch-timing'
