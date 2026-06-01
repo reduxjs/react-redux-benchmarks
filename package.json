@@ -46,11 +46,13 @@
     "redux": "^5.0.0",
     "reselect": "^5.0.0",
     "seedrandom": "^3.0.5",
+    "source-map-js": "^1.2.1",
     "tsx": "^4.19.2",
     "use-sync-external-store": "latest",
     "yargs": "^17"
   },
   "devDependencies": {
+    "@ast-grep/napi": "^0.43.0",
     "@types/cli-table2": "^0.2.3",
     "@types/express": "^4.17.17",
     "@types/fs-extra": "^9.0.12",

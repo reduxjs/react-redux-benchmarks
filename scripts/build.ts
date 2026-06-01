@@ -2,8 +2,11 @@ import { build, type Plugin } from 'vite'
 import path from 'path'
 import fs from 'fs-extra'
 import glob from 'glob'
+import { instrumentationPlugin } from './plugins/instrumentationPlugin'
 
 const pkg = require(path.join(process.cwd(), 'package.json'))
+
+const enableInstrumentation = process.argv.includes('--instrument')
 
 const readFolderNames = (searchDir: string) => {
   return glob.sync('*/', { cwd: searchDir }).map((s) => s.replace('/', ''))
@@ -29,17 +32,61 @@ async function bundle(options: BuildOptions) {
   const entryPoint = path.join('src/scenarios', scenarioName, 'index.tsx')
 
   const reactReduxPackageVersion = `react-redux-${reactReduxVersion}`
-  const resolvedReactReduxPath = require.resolve(reactReduxPackageVersion)
+  const reactReduxPkgDir = path.dirname(
+    require.resolve(`${reactReduxPackageVersion}/package.json`)
+  )
+  const reactReduxPkg = require(
+    `${reactReduxPackageVersion}/package.json`
+  )
+  // Prefer ESM entry from exports, fall back to CJS
+  const reactReduxEntry = reactReduxPkg.exports?.['.']?.import
+    ? path.join(reactReduxPkgDir, reactReduxPkg.exports['.'].import)
+    : require.resolve(reactReduxPackageVersion)
   const reactDomProfilingPath = require.resolve('react-dom/profiling')
 
-  // Redirect react-dom/client imports to react-dom/profiling for React Profiler support.
-  // Must be a plugin because Vite's resolve.alias doesn't override package.json exports.
+  // Use resolveId hooks instead of resolve.alias to ensure exact matching.
+  // resolve.alias does prefix matching which breaks with pnpm symlinks
+  // (e.g. node_modules/react-redux → yalc version overrides the alias).
   const reactDomProfilingPlugin: Plugin = {
     name: 'react-dom-profiling',
     enforce: 'pre',
     resolveId(source) {
       if (source === 'react-dom/client') {
         return reactDomProfilingPath
+      }
+    },
+  }
+
+  const reactReduxResolvePlugin: Plugin = {
+    name: 'react-redux-version-resolve',
+    enforce: 'pre',
+    resolveId(source) {
+      if (source === 'react-redux') {
+        return reactReduxEntry
+      }
+    },
+  }
+
+  // Fix @babel/runtime CJS interop for react-redux 8.1.1.
+  // @babel/runtime's package.json exports map `./helpers/*` with an `import`
+  // condition pointing to `./helpers/esm/*`. Vite resolves with ESM conditions,
+  // so CJS `require("@babel/runtime/helpers/interopRequireDefault")` gets the
+  // ESM version. Vite then wraps it in __toCommonJS which returns a module
+  // object instead of the function itself, crashing the CJS consumer.
+  // Force CJS resolution for these helpers.
+  const babelRuntimeCjsFixPlugin: Plugin = {
+    name: 'babel-runtime-cjs-fix',
+    enforce: 'pre',
+    resolveId(source) {
+      if (source.startsWith('@babel/runtime/helpers/') && !source.includes('/esm/')) {
+        // Resolve to the CJS file directly, bypassing the exports map
+        const helperName = source.replace('@babel/runtime/helpers/', '')
+        try {
+          const cjsPath = require.resolve(`@babel/runtime/helpers/${helperName}`)
+          return cjsPath
+        } catch {
+          return undefined
+        }
       }
     },
   }
@@ -53,12 +100,12 @@ async function bundle(options: BuildOptions) {
       'process.env.NAME': JSON.stringify(scenarioName),
       'process.env.RR_VERSION': JSON.stringify(reactReduxVersion),
     },
-    resolve: {
-      alias: {
-        'react-redux': resolvedReactReduxPath,
-      },
-    },
-    plugins: [reactDomProfilingPlugin],
+    plugins: [
+      reactDomProfilingPlugin,
+      reactReduxResolvePlugin,
+      babelRuntimeCjsFixPlugin,
+      ...(enableInstrumentation ? [instrumentationPlugin()] : []),
+    ],
     build: {
       outDir: outputFolder,
       emptyOutDir: true,
