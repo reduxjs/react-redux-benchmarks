@@ -1,34 +1,102 @@
-import { createApi, TagDescription } from '@reduxjs/toolkit/query/react'
+import { createApi, fakeBaseQuery } from '@reduxjs/toolkit/query/react'
+import {
+  generatePosts,
+  generateUser,
+  generateComments,
+  type Post,
+  type User,
+  type Comment,
+} from './fakeData'
 
-export const config = {
-  minimumRequestDuration: 50,
-  maximumRequestDuration: 100,
-  requestsPerArg: {} as Record<string, number>,
-}
-
-const t: TagDescription<'abcd'> = 'abcd'
-
-export const baseQuery = (arg: string) => {
-  return new Promise<{ data: string }>((resolve) => {
-    config.requestsPerArg[arg] ??= 0
-    const nextNumber = ++config.requestsPerArg[arg]
-    const duration =
-      config.minimumRequestDuration +
-      Math.random() *
-        (config.maximumRequestDuration - config.minimumRequestDuration)
-    setTimeout(() => resolve({ data: `${arg}${nextNumber}` }), duration)
-  })
-}
+const randomDelay = () =>
+  new Promise<void>((resolve) =>
+    setTimeout(resolve, 20 + Math.random() * 60)
+  )
 
 export const api = createApi({
-  baseQuery,
-  tagTypes: ['QUERY'],
-  endpoints: (build) => ({
-    some: build.query({
-      query: (arg: string) => arg,
-      providesTags: ['QUERY'],
+  baseQuery: fakeBaseQuery(),
+  tagTypes: ['Post', 'User', 'Comment'],
+  endpoints: (builder) => ({
+    getPosts: builder.query<Post[], { page: number }>({
+      queryFn: async ({ page }) => {
+        await randomDelay()
+        return { data: generatePosts(page, 20) }
+      },
+      providesTags: (result, _error, { page }) =>
+        result
+          ? [
+              ...result.map(({ id }) => ({ type: 'Post' as const, id })),
+              { type: 'Post', id: `LIST-${page}` },
+              'Post',
+            ]
+          : ['Post'],
+    }),
+
+    getUser: builder.query<User, number>({
+      queryFn: async (userId) => {
+        await randomDelay()
+        return { data: generateUser(userId) }
+      },
+      providesTags: (_result, _error, userId) => [
+        { type: 'User', id: userId },
+      ],
+    }),
+
+    getComments: builder.query<Comment[], number>({
+      queryFn: async (postId) => {
+        await randomDelay()
+        return { data: generateComments(postId, 5) }
+      },
+      providesTags: (result, _error, postId) =>
+        result
+          ? [
+              ...result.map(({ id }) => ({ type: 'Comment' as const, id })),
+              { type: 'Comment', id: `post-${postId}` },
+            ]
+          : [{ type: 'Comment', id: `post-${postId}` }],
+    }),
+
+    addComment: builder.mutation<
+      Comment,
+      { postId: number; text: string }
+    >({
+      queryFn: async ({ postId, text }) => {
+        await randomDelay()
+        const newComment: Comment = {
+          id: Date.now(),
+          postId,
+          userId: Math.floor(Math.random() * 80),
+          text,
+        }
+        return { data: newComment }
+      },
+      invalidatesTags: (_result, _error, { postId }) => [
+        { type: 'Comment', id: `post-${postId}` },
+      ],
+      onQueryStarted: async ({ postId, text }, { dispatch, queryFulfilled }) => {
+        const newComment: Comment = {
+          id: Date.now(),
+          postId,
+          userId: Math.floor(Math.random() * 80),
+          text,
+        }
+        const patchResult = dispatch(
+          api.util.updateQueryData('getComments', postId, (draft) => {
+            draft.push(newComment)
+          })
+        )
+        try {
+          await queryFulfilled
+        } catch {
+          patchResult.undo()
+        }
+      },
     }),
   }),
 })
 
-export const { useSomeQuery } = api
+export const {
+  useGetPostsQuery,
+  useGetUserQuery,
+  useGetCommentsQuery,
+} = api

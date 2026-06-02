@@ -1,20 +1,28 @@
 import React, { useLayoutEffect } from 'react'
-
-import { store } from './store'
-import App from './App'
-import { api } from './api'
-
 import { renderApp } from '../../common'
+import App from './App'
+import { store } from './store'
+import {
+  broadInvalidation,
+  targetedInvalidation,
+  optimisticMutation,
+} from './dispatchers'
 
-const invalidateAll = () => {
-  store.dispatch(api.util.invalidateTags(['QUERY']))
+function doRandomDispatch() {
+  const roll = Math.random()
+  if (roll < 0.4) {
+    broadInvalidation(store)
+  } else if (roll < 0.7) {
+    targetedInvalidation(store)
+  } else {
+    optimisticMutation(store)
+  }
 }
 
 const RootApp = () => {
   useLayoutEffect(() => {
-    setInterval(invalidateAll, 200)
+    setInterval(doRandomDispatch, 200)
   }, [])
-
   return <App />
 }
 

@@ -1,132 +1,46 @@
-import React, { ChangeEventHandler, useState } from 'react'
-import { api, config, useSomeQuery } from './api'
-import { StrictMode, Fragment, Profiler } from 'react'
-import { Child, Invalidate } from './rtk-query'
+import React from 'react'
+import { PostList, PostCount, UserCard, CommentSection } from './components'
+import {
+  POST_LIST_COUNT,
+  POST_COUNT_COUNT,
+  USER_CARD_COUNT,
+  COMMENT_SECTION_COUNT,
+  NUM_PAGES,
+  NUM_USERS,
+  NUM_COMMENT_POSTS,
+} from './constants'
 
-import { NUMBER_OF_COMPONENTS } from './constants'
+const postListItems = Array.from({ length: POST_LIST_COUNT }, (_, i) => i % NUM_PAGES)
+const postCountItems = Array.from({ length: POST_COUNT_COUNT }, (_, i) => i % NUM_PAGES)
+const userCardItems = Array.from({ length: USER_CARD_COUNT }, (_, i) => i % NUM_USERS)
+const commentSectionItems = Array.from(
+  { length: COMMENT_SECTION_COUNT },
+  (_, i) => i % NUM_COMMENT_POSTS
+)
 
-function useNumberValue(
-  initialValue: number,
-  afterChange?: (value: number) => void
-) {
-  const [value, setState] = useState(initialValue)
-  const onChange: ChangeEventHandler<HTMLInputElement> = (e) => {
-    const value = e.currentTarget.valueAsNumber
-    setState(value)
-    afterChange?.(value)
-  }
-  return { value, onChange }
-}
-
-function useBooleanValue(initialValue: boolean) {
-  const [checked, setState] = useState(initialValue)
-  const onChange: ChangeEventHandler<HTMLInputElement> = (e) => {
-    setState(e.currentTarget.checked)
-  }
-  return { checked, onChange }
-}
-
-function useStringValue(initialValue: string) {
-  const [value, setState] = useState(initialValue)
-  const onChange: ChangeEventHandler<HTMLInputElement> = (e) => {
-    setState(e.currentTarget.value)
-  }
-  return { value, onChange }
-}
-
-const onRenderCallback: React.ProfilerOnRenderCallback = (
-  id,
-  phase,
-  actualDuration,
-  baseDuration,
-  startTime,
-  commitTime
-) => {}
-
-export default function App() {
-  const numberOfChildren = useNumberValue(NUMBER_OF_COMPONENTS)
-  const strictMode = useBooleanValue(false)
-  const individualQueries = useBooleanValue(true)
-  const responseTimesFrom = useNumberValue(
-    config.minimumRequestDuration,
-    (v) => (config.minimumRequestDuration = v)
-  )
-  const responseTimesTo = useNumberValue(
-    config.maximumRequestDuration,
-    (v) => (config.maximumRequestDuration = v)
-  )
-  const childrenMounted = useBooleanValue(true)
-  const skip = useBooleanValue(false)
-  const prefix = useStringValue('test')
-  const StrictWrapper = strictMode ? StrictMode : Fragment
-
-  return (
-    <div
-      style={{
-        display: 'flex',
-        flexDirection: 'column',
-        maxHeight: '95vh',
-      }}
-    >
-      <h1>RTK Perf test</h1>
-
-      <label>
-        number of children: <br /> <input type="number" {...numberOfChildren} />
-      </label>
-      <label>
-        prefix: <br /> <input type="text" {...prefix} />
-      </label>
-      <label>
-        <input type="checkbox" {...strictMode} />
-        strict mode
-      </label>
-      <label>
-        <input type="checkbox" {...individualQueries} />
-        individual query per child
-      </label>
-      <label>
-        <input type="checkbox" {...childrenMounted} />
-        children mounted
-      </label>
-      <label>
-        <input type="checkbox" {...skip} />
-        skip
-      </label>
-      <div style={{ display: 'flex', flexDirection: 'row' }}>
-        response times: (ms)&nbsp;
-        <label>
-          from <input type="number" {...responseTimesFrom} />
-        </label>
-        <label>
-          to <input type="number" {...responseTimesTo} />
-        </label>
-      </div>
-      <Invalidate />
-      <StrictWrapper>
-        <Profiler id="children" onRender={onRenderCallback}>
-          <div
-            style={{
-              display: 'flex',
-              flexDirection: 'column',
-              flexGrow: 1,
-              overflow: 'scroll',
-            }}
-          >
-            {childrenMounted.checked &&
-              new Array(numberOfChildren.value).fill(null).map((_, idx) => {
-                return (
-                  <Child
-                    key={idx}
-                    skip={skip.checked}
-                    arg={`${prefix.value}-${
-                      individualQueries.checked ? `${idx}-` : ''
-                    }`}
-                  />
-                )
-              })}
-          </div>
-        </Profiler>
-      </StrictWrapper>
+const App = () => (
+  <div>
+    <div>
+      {postListItems.map((page, i) => (
+        <PostList key={i} page={page} />
+      ))}
     </div>
-  )
-}
+    <div>
+      {postCountItems.map((page, i) => (
+        <PostCount key={i} page={page} />
+      ))}
+    </div>
+    <div>
+      {userCardItems.map((userId, i) => (
+        <UserCard key={i} userId={userId} />
+      ))}
+    </div>
+    <div>
+      {commentSectionItems.map((postId, i) => (
+        <CommentSection key={i} postId={postId} />
+      ))}
+    </div>
+  </div>
+)
+
+export default App
