@@ -77,9 +77,6 @@ importers:
       seedrandom:
         specifier: ^3.0.5
         version: 3.0.5
-      source-map-js:
-        specifier: ^1.2.1
-        version: 1.2.1
       tsx:
         specifier: ^4.19.2
         version: 4.22.3
