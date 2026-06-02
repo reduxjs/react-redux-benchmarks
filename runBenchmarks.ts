@@ -8,13 +8,11 @@ import Table from 'cli-table2'
 import glob from 'glob'
 import yargs from 'yargs/yargs'
 import chalk from 'chalk'
-import { SourceMapConsumer, type RawSourceMap } from 'source-map-js'
 
 import {
   capturePageStats,
   runServer,
   PageStatsResult,
-  RenderResult,
   V8CpuProfile,
 } from './utils/server'
 
@@ -97,41 +95,20 @@ type ModuleCategory =
   | 'app'
   | 'other'
 
-function classifySourcePath(originalSource: string): ModuleCategory {
-  const s = originalSource.replace(/\\/g, '/')
-  // Order matters: more specific matches first
-  if (s.includes('/react-dom/')) return 'react-dom'
-  if (s.includes('/react-redux/') || s.includes('/react-redux-'))
-    return 'react-redux'
-  if (
-    s.includes('/@reduxjs/toolkit/') ||
-    s.includes('/node_modules/redux/') ||
-    s.includes('/node_modules/reselect/') ||
-    s.includes('/node_modules/immer/')
-  )
-    return 'redux/toolkit'
-  if (
-    s.includes('/node_modules/react/') ||
-    s.includes('/node_modules/scheduler/')
-  )
-    return 'react'
-  if (
-    s.includes('/scenarios/') ||
-    s.includes('/common/') ||
-    s.includes('/src/')
-  )
-    return 'app'
-  return 'other'
+// Known chunk filenames emitted by the build's manualChunks config.
+// Maps chunk filename (without path) to the ModuleCategory.
+const CHUNK_TO_CATEGORY: Record<string, ModuleCategory> = {
+  'react-dom.js': 'react-dom',
+  'react.js': 'react',
+  'react-redux.js': 'react-redux',
+  'redux-toolkit.js': 'redux/toolkit',
+  'app.js': 'app',
 }
 
-// Classify non-bundle profile nodes (browser internals, GC, extensions, etc.)
-type NonBundleCategory = 'idle' | 'gc' | 'browser'
-
-function classifyNonBundleNode(
-  functionName: string,
-  url: string
-): NonBundleCategory {
+function classifyByUrl(url: string, functionName: string): keyof ModuleBreakdown {
+  // Non-bundle nodes: idle, GC, browser internals
   if (
+    !url ||
     functionName === '(idle)' ||
     functionName === '(root)' ||
     functionName === ''
@@ -139,7 +116,17 @@ function classifyNonBundleNode(
     return 'idle'
   if (functionName === '(garbage collector)' || functionName.includes('GC'))
     return 'gc'
-  return 'browser'
+
+  // Extract filename from URL (last path segment)
+  const filename = url.split('/').pop() ?? ''
+
+  const category = CHUNK_TO_CATEGORY[filename]
+  if (category) return category
+
+  // URLs that aren't our chunks: extensions, browser internals, etc.
+  if (!url.includes('localhost:')) return 'browser'
+
+  return 'other'
 }
 
 export interface ModuleBreakdown {
@@ -154,19 +141,8 @@ export interface ModuleBreakdown {
   browser: number
 }
 
-function extractInlineSourceMap(bundlePath: string): RawSourceMap | null {
-  const content = fs.readFileSync(bundlePath, 'utf-8')
-  const marker = '//# sourceMappingURL=data:application/json;charset=utf-8;base64,'
-  const idx = content.lastIndexOf(marker)
-  if (idx === -1) return null
-  const base64 = content.slice(idx + marker.length).trim()
-  const json = Buffer.from(base64, 'base64').toString('utf-8')
-  return JSON.parse(json)
-}
-
 function computeModuleBreakdown(
-  profile: V8CpuProfile,
-  bundlePath: string
+  profile: V8CpuProfile
 ): ModuleBreakdown {
   const breakdown: ModuleBreakdown = {
     'react-dom': 0,
@@ -178,20 +154,6 @@ function computeModuleBreakdown(
     idle: 0,
     gc: 0,
     browser: 0,
-  }
-
-  const rawMap = extractInlineSourceMap(bundlePath)
-  if (!rawMap) {
-    console.warn(chalk.yellow(`  No inline source map found in ${bundlePath}`))
-    return breakdown
-  }
-
-  const consumer = new SourceMapConsumer(rawMap)
-
-  // Build node map for lookup
-  const nodeMap = new Map<number, V8ProfileNode>()
-  for (const node of profile.nodes) {
-    nodeMap.set(node.id, node)
   }
 
   // Compute self time per node from samples + timeDeltas
@@ -211,39 +173,16 @@ function computeModuleBreakdown(
     }
   }
 
-  // Determine the bundle URL to match against callFrame.url
-  // The bundle is served at e.g. http://localhost:9999/{version}/{scenario}/index.js
-  const bundleFilename = 'index.js'
-
   for (const node of profile.nodes) {
     const time = selfTime.get(node.id) ?? 0
     if (time === 0) continue
 
-    const { url, lineNumber, columnNumber } = node.callFrame
-
-    // Non-bundle nodes: browser internals, idle, GC
-    if (!url.endsWith(bundleFilename)) {
-      const cat = classifyNonBundleNode(node.callFrame.functionName, url)
-      breakdown[cat] += time
-      continue
-    }
-
-    // V8 uses 0-based lines, source-map-js uses 1-based
-    const pos = consumer.originalPositionFor({
-      line: lineNumber + 1,
-      column: columnNumber,
-    })
-
-    if (pos.source) {
-      const category = classifySourcePath(pos.source)
-      breakdown[category] += time
-    } else {
-      breakdown.other += time
-    }
+    const category = classifyByUrl(node.callFrame.url, node.callFrame.functionName)
+    breakdown[category] += time
   }
 
   // Convert from μs to ms
-  for (const key of Object.keys(breakdown) as ModuleCategory[]) {
+  for (const key of Object.keys(breakdown) as (keyof ModuleBreakdown)[]) {
     breakdown[key] = breakdown[key] / 1000
   }
 
@@ -278,8 +217,7 @@ interface BenchmarkStats {
 }
 
 function calculateBenchmarkStats(
-  results: PageStatsResult,
-  bundlePath?: string
+  results: PageStatsResult
 ): BenchmarkStats {
   const { cdpMetrics, dispatchStats, reactTimingEntries, wallTime, cpuProfile } =
     results
@@ -341,10 +279,10 @@ function calculateBenchmarkStats(
     avgTime: dispatchStats.avgTime,
   }
 
-  // Module breakdown from V8 CPU profile
+  // Module breakdown from V8 CPU profile (classified by chunk URL)
   let moduleBreakdown: ModuleBreakdown | undefined
-  if (cpuProfile && bundlePath) {
-    moduleBreakdown = computeModuleBreakdown(cpuProfile, bundlePath)
+  if (cpuProfile) {
+    moduleBreakdown = computeModuleBreakdown(cpuProfile)
   }
 
   // Instrumentation stats (pass through)
@@ -537,10 +475,6 @@ async function runBenchmarks({
         continue
       }
 
-      const bundlePath = enableProfile
-        ? path.join(folderPath, 'index.js')
-        : undefined
-
       const URL = `http://localhost:9999/${version}/${scenario}`
       try {
         if (!jsonOutput) {
@@ -558,10 +492,7 @@ async function runBenchmarks({
           saveCpuProfile(results.cpuProfile, scenario, version)
         }
 
-        versionPerfEntries[version] = calculateBenchmarkStats(
-          results,
-          bundlePath
-        )
+        versionPerfEntries[version] = calculateBenchmarkStats(results)
       } catch (e) {
         console.error(e)
         process.exit(-1)

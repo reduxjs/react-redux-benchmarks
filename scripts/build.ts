@@ -109,15 +109,48 @@ async function bundle(options: BuildOptions) {
     build: {
       outDir: outputFolder,
       emptyOutDir: true,
-      sourcemap: 'inline',
+      sourcemap: false,
       minify: false,
-      lib: {
-        entry: entryPoint,
-        formats: ['iife'],
-        name: 'benchmark',
-        fileName: () => 'index.js',
+      rollupOptions: {
+        input: entryPoint,
+        output: {
+          format: 'esm',
+          entryFileNames: 'app.js',
+          chunkFileNames: '[name].js',
+          manualChunks(id: string) {
+            const normalized = id.replace(/\\/g, '/')
+            // Only classify files inside node_modules
+            if (!normalized.includes('/node_modules/')) return
+            if (
+              normalized.includes('/react-dom/') ||
+              normalized.includes('/scheduler/')
+            ) {
+              return 'react-dom'
+            }
+            if (
+              normalized.includes('/node_modules/react/')
+            ) {
+              return 'react'
+            }
+            if (
+              normalized.includes('/node_modules/react-redux/') ||
+              normalized.includes('/node_modules/react-redux-')
+            ) {
+              return 'react-redux'
+            }
+            if (
+              normalized.includes('/@reduxjs/toolkit/') ||
+              normalized.includes('/node_modules/redux/') ||
+              normalized.includes('/node_modules/reselect/') ||
+              normalized.includes('/node_modules/immer/') ||
+              normalized.includes('/node_modules/redux-thunk/') ||
+              normalized.includes('/use-sync-external-store/')
+            ) {
+              return 'redux-toolkit'
+            }
+          },
+        },
       },
-
     },
   })
 
