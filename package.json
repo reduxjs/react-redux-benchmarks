@@ -42,12 +42,11 @@
     "react-redux": "file:.yalc/react-redux",
     "react-redux-8.1.1": "npm:react-redux@8.1.1",
     "react-redux-9.2.0": "npm:react-redux@9.2.0",
-    "react-redux-9.2.0-shallow-checks": "file:.yalc/react-redux",
+    "react-redux-9.2.0-signals-selectors": "file:.yalc/react-redux",
     "recursive-copy": "^2.0.9",
     "redux": "^5.0.0",
     "reselect": "^5.0.0",
     "seedrandom": "^3.0.5",
-
     "tsx": "^4.19.2",
     "use-sync-external-store": "latest",
     "yargs": "^17"
@@ -62,9 +61,9 @@
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "@typescript/native-preview": "beta",
+    "alien-signals": "^3.2.1",
     "fs-extra": "^10.0.0",
     "prettier": "latest",
-
     "vite": "^8"
   },
   "packageManager": "pnpm@11.0.2"
