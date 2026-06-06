@@ -33,11 +33,9 @@ async function bundle(options: BuildOptions) {
 
   const reactReduxPackageVersion = `react-redux-${reactReduxVersion}`
   const reactReduxPkgDir = path.dirname(
-    require.resolve(`${reactReduxPackageVersion}/package.json`)
+    require.resolve(`${reactReduxPackageVersion}/package.json`),
   )
-  const reactReduxPkg = require(
-    `${reactReduxPackageVersion}/package.json`
-  )
+  const reactReduxPkg = require(`${reactReduxPackageVersion}/package.json`)
   // Prefer ESM entry from exports, fall back to CJS
   const reactReduxEntry = reactReduxPkg.exports?.['.']?.import
     ? path.join(reactReduxPkgDir, reactReduxPkg.exports['.'].import)
@@ -78,11 +76,16 @@ async function bundle(options: BuildOptions) {
     name: 'babel-runtime-cjs-fix',
     enforce: 'pre',
     resolveId(source) {
-      if (source.startsWith('@babel/runtime/helpers/') && !source.includes('/esm/')) {
+      if (
+        source.startsWith('@babel/runtime/helpers/') &&
+        !source.includes('/esm/')
+      ) {
         // Resolve to the CJS file directly, bypassing the exports map
         const helperName = source.replace('@babel/runtime/helpers/', '')
         try {
-          const cjsPath = require.resolve(`@babel/runtime/helpers/${helperName}`)
+          const cjsPath = require.resolve(
+            `@babel/runtime/helpers/${helperName}`,
+          )
           return cjsPath
         } catch {
           return undefined
@@ -127,9 +130,7 @@ async function bundle(options: BuildOptions) {
             ) {
               return 'react-dom'
             }
-            if (
-              normalized.includes('/node_modules/react/')
-            ) {
+            if (normalized.includes('/node_modules/react/')) {
               return 'react'
             }
             if (
@@ -157,7 +158,7 @@ async function bundle(options: BuildOptions) {
   // Copy over the HTML host page
   fs.copyFileSync(
     'src/common/index.html',
-    path.join(outputFolder, 'index.html')
+    path.join(outputFolder, 'index.html'),
   )
 }
 
