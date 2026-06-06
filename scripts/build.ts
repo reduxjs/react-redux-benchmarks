@@ -162,6 +162,44 @@ async function bundle(options: BuildOptions) {
   )
 }
 
+function generateDistIndex(versions: string[], scenarios: string[]) {
+  const links = versions
+    .map((version) => {
+      const scenarioLinks = scenarios
+        .map(
+          (s) =>
+            `      <li><a href="./${version}/${s}/index.html">${s}</a></li>`,
+        )
+        .join('\n')
+      return `    <h2>${version}</h2>\n    <ul>\n${scenarioLinks}\n    </ul>`
+    })
+    .join('\n')
+
+  const html = `<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>React-Redux Benchmarks</title>
+  <style>
+    body { font-family: system-ui, sans-serif; max-width: 800px; margin: 2rem auto; padding: 0 1rem; }
+    h1 { border-bottom: 1px solid #ccc; padding-bottom: 0.5rem; }
+    h2 { margin-top: 1.5rem; color: #333; }
+    ul { columns: 2; column-gap: 2rem; }
+    li { margin: 0.25rem 0; }
+    a { color: #0366d6; text-decoration: none; }
+    a:hover { text-decoration: underline; }
+  </style>
+</head>
+<body>
+  <h1>React-Redux Benchmarks</h1>
+${links}
+</body>
+</html>`
+
+  fs.writeFileSync(path.join(outputDir, 'index.html'), html)
+  console.log('Generated dist/index.html')
+}
+
 async function main() {
   fs.removeSync(outputDir)
   fs.ensureDirSync(outputDir)
@@ -172,10 +210,12 @@ async function main() {
     console.log(`Building projects for version: ${version}...`)
 
     const bundlePromises = allScenarios.map((scenarioName) =>
-      bundle({ scenarioName, reactReduxVersion: version })
+      bundle({ scenarioName, reactReduxVersion: version }),
     )
     await Promise.all(bundlePromises)
   }
+
+  generateDistIndex(availableVersions, allScenarios)
 }
 
 console.log('Available versions: ', availableVersions)
