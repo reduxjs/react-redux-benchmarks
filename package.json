@@ -6,7 +6,8 @@
   "scripts": {
     "start": "tsx ./runBenchmarks.ts",
     "format": "prettier --write \"sources/**/src/*.{js,jsx,ts,tsx}\" *.js",
-    "build": "tsx scripts/build.ts"
+    "build": "tsx scripts/build.ts",
+    "serve": "npx http-server dist -o"
   },
   "repository": {
     "type": "git",
