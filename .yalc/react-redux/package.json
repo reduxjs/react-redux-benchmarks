@@ -1,6 +1,6 @@
 {
   "name": "react-redux",
-  "version": "9.2.0",
+  "version": "9.3.0",
   "description": "Official React bindings for Redux",
   "keywords": [
     "react",
@@ -65,8 +65,9 @@
   },
   "dependencies": {
     "@types/use-sync-external-store": "^0.0.6",
+    "alien-signals": "^3.2.1",
     "use-sync-external-store": "^1.4.0"
   },
   "packageManager": "yarn@4.4.1",
-  "yalcSig": "9860a4ee952510f66ce16dd241b110b5"
+  "yalcSig": "315a180e482e0c66c9c72629d1092732"
 }

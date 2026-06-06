@@ -680,7 +680,7 @@ function strictEqual(a, b) {
   return a === b;
 }
 var hasWarnedAboutDeprecatedPureOption = false;
-function connect(mapStateToProps, mapDispatchToProps, mergeProps, {
+function _connect(mapStateToProps, mapDispatchToProps, mergeProps, {
   // The `pure` option has been removed, so TS doesn't like us destructuring this to check its existence.
   // @ts-ignore
   pure,
@@ -903,32 +903,275 @@ ${latestSubscriptionCallbackError.current.stack}
   };
   return wrapWithConnect;
 }
-var connect_default = connect;
+var connect = _connect;
+var legacy_connect = _connect;
 
-// src/components/Provider.tsx
-function Provider(providerProps) {
-  const { children, context, serverState, store } = providerProps;
+// src/signals/pathSignalRegistry.ts
+function isObjectOrArray(v) {
+  return v !== null && typeof v === "object";
+}
+function incrementPrefixes(prefixCounts, pathKey) {
+  prefixCounts.set(pathKey, (prefixCounts.get(pathKey) || 0) + 1);
+  let idx = pathKey.lastIndexOf(".");
+  while (idx !== -1) {
+    const prefix = pathKey.substring(0, idx);
+    prefixCounts.set(prefix, (prefixCounts.get(prefix) || 0) + 1);
+    idx = prefix.lastIndexOf(".");
+  }
+}
+function decrementPrefixes(prefixCounts, pathKey) {
+  let count = prefixCounts.get(pathKey);
+  if (count !== void 0) {
+    if (count <= 1) prefixCounts.delete(pathKey);
+    else prefixCounts.set(pathKey, count - 1);
+  }
+  let idx = pathKey.lastIndexOf(".");
+  while (idx !== -1) {
+    const prefix = pathKey.substring(0, idx);
+    count = prefixCounts.get(prefix);
+    if (count !== void 0) {
+      if (count <= 1) prefixCounts.delete(prefix);
+      else prefixCounts.set(prefix, count - 1);
+    }
+    idx = prefix.lastIndexOf(".");
+  }
+}
+function createPathSignalRegistry(engine) {
+  const signals = /* @__PURE__ */ new Map();
+  const prefixCounts = /* @__PURE__ */ new Map();
+  const prefixOnlyPaths = /* @__PURE__ */ new Set();
+  const proxyWeakMap = /* @__PURE__ */ new WeakMap();
+  return {
+    getOrCreate(pathKey, currentValue) {
+      let sig = signals.get(pathKey);
+      if (!sig) {
+        const initialValue = isObjectOrArray(currentValue) ? 0 : currentValue;
+        sig = engine.signal(initialValue);
+        signals.set(pathKey, sig);
+        if (prefixOnlyPaths.has(pathKey)) {
+          prefixOnlyPaths.delete(pathKey);
+        } else {
+          incrementPrefixes(prefixCounts, pathKey);
+        }
+      }
+      return sig;
+    },
+    ensurePrefix(pathKey) {
+      if (signals.has(pathKey) || prefixOnlyPaths.has(pathKey)) return;
+      prefixOnlyPaths.add(pathKey);
+      incrementPrefixes(prefixCounts, pathKey);
+    },
+    update(pathKey, newValue) {
+      const sig = signals.get(pathKey);
+      if (!sig) return;
+      if (isObjectOrArray(newValue)) {
+        const current = sig.get();
+        sig.set(typeof current === "number" ? current + 1 : 0);
+      } else {
+        sig.set(newValue);
+      }
+    },
+    prune(pathKey) {
+      const prefix = pathKey + ".";
+      for (const key of signals.keys()) {
+        if (key === pathKey || key.startsWith(prefix)) {
+          signals.delete(key);
+          decrementPrefixes(prefixCounts, key);
+        }
+      }
+      for (const key of prefixOnlyPaths) {
+        if (key === pathKey || key.startsWith(prefix)) {
+          prefixOnlyPaths.delete(key);
+          decrementPrefixes(prefixCounts, key);
+        }
+      }
+    },
+    size() {
+      return signals.size;
+    },
+    has(pathKey) {
+      return signals.has(pathKey);
+    },
+    hasPrefix(prefix) {
+      return (prefixCounts.get(prefix) || 0) > 0;
+    },
+    proxyCache: proxyWeakMap
+  };
+}
+
+// src/signals/diff.ts
+function isPlainObject2(v) {
+  if (v === null || typeof v !== "object") return false;
+  const proto = Object.getPrototypeOf(v);
+  return proto === Object.prototype || proto === null;
+}
+function diffAndUpdateSignals(prev, next, parentPath, registry) {
+  if (prev === next) return;
+  if (isPlainObject2(prev) && isPlainObject2(next)) {
+    const nextKeys = Object.keys(next);
+    const prevKeyCount = Object.keys(prev).length;
+    let keysChanged = prevKeyCount !== nextKeys.length;
+    if (parentPath) {
+      registry.update(parentPath, next);
+    }
+    for (let i = 0; i < nextKeys.length; i++) {
+      const key = nextKeys[i];
+      const childPath = parentPath ? parentPath + "." + key : key;
+      if (!keysChanged && !(key in prev)) {
+        keysChanged = true;
+      }
+      if (registry.hasPrefix(childPath)) {
+        diffAndUpdateSignals(prev[key], next[key], childPath, registry);
+      }
+    }
+    if (keysChanged) {
+      const keysPath = parentPath ? parentPath + ".@@keys" : "@@keys";
+      registry.update(keysPath, nextKeys);
+      const prevKeys = Object.keys(prev);
+      for (let i = 0; i < prevKeys.length; i++) {
+        if (!(prevKeys[i] in next)) {
+          const childPath = parentPath ? parentPath + "." + prevKeys[i] : prevKeys[i];
+          registry.prune(childPath);
+        }
+      }
+    }
+    return;
+  }
+  if (Array.isArray(prev) && Array.isArray(next)) {
+    if (parentPath) {
+      registry.update(parentPath, next);
+    }
+    if (prev.length !== next.length) {
+      const keysPath = parentPath ? parentPath + ".@@keys" : "@@keys";
+      registry.update(keysPath, next.length);
+      const lengthPath = parentPath ? parentPath + ".length" : "length";
+      registry.update(lengthPath, next.length);
+    }
+    const minLen = Math.min(prev.length, next.length);
+    for (let i = 0; i < minLen; i++) {
+      if (prev[i] !== next[i]) {
+        const childPath = parentPath ? parentPath + "." + i : String(i);
+        if (registry.hasPrefix(childPath)) {
+          diffAndUpdateSignals(prev[i], next[i], childPath, registry);
+        }
+      }
+    }
+    for (let i = minLen; i < next.length; i++) {
+      const childPath = parentPath ? parentPath + "." + i : String(i);
+      if (registry.hasPrefix(childPath)) {
+        diffAndUpdateSignals(void 0, next[i], childPath, registry);
+      }
+    }
+    for (let i = next.length; i < prev.length; i++) {
+      const childPath = parentPath ? parentPath + "." + i : String(i);
+      registry.prune(childPath);
+    }
+    return;
+  }
+  if (parentPath) {
+    registry.update(parentPath, next);
+  }
+  if (prev !== null && typeof prev === "object" && (next === null || typeof next !== "object")) {
+    registry.prune(parentPath);
+  }
+}
+function reconcileState(prev, next, registry, engine) {
+  engine.batch(() => {
+    diffAndUpdateSignals(prev, next, "", registry);
+  });
+}
+
+// src/signals/engine.ts
+import {
+  signal as alienSignal,
+  computed as alienComputed,
+  effect as alienEffect,
+  effectScope as alienEffectScope,
+  startBatch,
+  endBatch
+} from "alien-signals";
+var alienEngine = {
+  signal(value) {
+    const s = alienSignal(value);
+    return {
+      get: () => s(),
+      set: (v) => s(v)
+    };
+  },
+  computed(fn) {
+    const c = alienComputed(fn);
+    return { get: () => c() };
+  },
+  effect(fn) {
+    alienEffect(fn);
+  },
+  batch(fn) {
+    startBatch();
+    try {
+      fn();
+    } finally {
+      endBatch();
+    }
+  },
+  createScope() {
+    let dispose;
+    return {
+      run(fn) {
+        let result;
+        dispose = alienEffectScope(() => {
+          result = fn();
+        });
+        return result;
+      },
+      stop() {
+        dispose == null ? void 0 : dispose();
+        dispose = void 0;
+      }
+    };
+  }
+};
+
+// src/signals/SignalProvider.tsx
+function SignalProvider(providerProps) {
+  const {
+    children,
+    context,
+    serverState,
+    store,
+    engine = alienEngine
+  } = providerProps;
+  const registryRef = React.useRef(createPathSignalRegistry(engine));
+  const registry = registryRef.current;
+  const prevStateRef = React.useRef(store.getState());
   const contextValue = React.useMemo(() => {
     const subscription = createSubscription(store);
     const baseContextValue = {
       store,
       subscription,
-      getServerState: serverState ? () => serverState : void 0
+      getServerState: serverState ? () => serverState : void 0,
+      registry,
+      engine
     };
     if (process.env.NODE_ENV === "production") {
       return baseContextValue;
     } else {
       const { identityFunctionCheck = "once", stabilityCheck = "once" } = providerProps;
-      return /* @__PURE__ */ Object.assign(baseContextValue, {
+      return Object.assign(baseContextValue, {
         stabilityCheck,
         identityFunctionCheck
       });
     }
-  }, [store, serverState]);
+  }, [store, serverState, registry, engine]);
   const previousState = React.useMemo(() => store.getState(), [store]);
   useIsomorphicLayoutEffect(() => {
     const { subscription } = contextValue;
-    subscription.onStateChange = subscription.notifyNestedSubs;
+    subscription.onStateChange = () => {
+      const prev = prevStateRef.current;
+      const next = store.getState();
+      prevStateRef.current = next;
+      reconcileState(prev, next, registry, engine);
+      subscription.notifyNestedSubs();
+    };
     subscription.trySubscribe();
     if (previousState !== store.getState()) {
       subscription.notifyNestedSubs();
@@ -941,7 +1184,165 @@ function Provider(providerProps) {
   const Context = context || ReactReduxContext;
   return /* @__PURE__ */ React.createElement(Context.Provider, { value: contextValue }, children);
 }
-var Provider_default = Provider;
+
+// src/signals/context.ts
+function useSignalContext() {
+  const contextValue = React.useContext(
+    ReactReduxContext
+  );
+  if (!contextValue) {
+    throw new Error(
+      "useSignalSelector must be used within a <SignalProvider>"
+    );
+  }
+  if (!("registry" in contextValue) || !("engine" in contextValue)) {
+    throw new Error(
+      "useSignalSelector must be used within a <SignalProvider>, not a regular <Provider>"
+    );
+  }
+  return contextValue;
+}
+
+// src/signals/trackingProxy.ts
+function isObjectOrArray2(v) {
+  return v !== null && typeof v === "object";
+}
+var proxyPathMap = /* @__PURE__ */ new WeakMap();
+function getProxyPath(value) {
+  if (value !== null && typeof value === "object") {
+    return proxyPathMap.get(value);
+  }
+  return void 0;
+}
+function createTrackingProxy(target, parentPath, registry, cache) {
+  const cached = cache.get(target);
+  if (cached) return cached;
+  const shell = Array.isArray(target) ? [] : Object.create(Object.getPrototypeOf(target));
+  const proxy = new Proxy(shell, {
+    get(_obj, prop, _receiver) {
+      if (typeof prop === "symbol") return Reflect.get(target, prop);
+      const value = target[prop];
+      if (typeof value === "function") {
+        return value;
+      }
+      const pathKey = parentPath ? parentPath + "." + prop : prop;
+      if (isObjectOrArray2(value)) {
+        registry.ensurePrefix(pathKey);
+        const childProxy = createTrackingProxy(
+          value,
+          pathKey,
+          registry,
+          cache
+        );
+        return childProxy;
+      }
+      registry.getOrCreate(pathKey, value).get();
+      return value;
+    },
+    // Track when selectors iterate keys (Object.keys, for...in, .map, .filter, etc.)
+    ownKeys(_obj) {
+      const keysPath = parentPath ? parentPath + ".@@keys" : "@@keys";
+      registry.getOrCreate(keysPath, Reflect.ownKeys(target)).get();
+      return Reflect.ownKeys(target);
+    },
+    // Track has() checks for conditional property access (e.g., 'key' in obj)
+    has(_obj, prop) {
+      if (typeof prop === "symbol") return Reflect.has(target, prop);
+      const pathKey = parentPath ? parentPath + "." + prop : prop;
+      registry.getOrCreate(pathKey, target[prop]).get();
+      return Reflect.has(target, prop);
+    },
+    // Delegate to real target for property descriptors
+    getOwnPropertyDescriptor(_obj, prop) {
+      const desc = Object.getOwnPropertyDescriptor(target, prop);
+      if (desc) {
+        return __spreadProps(__spreadValues({}, desc), { configurable: true });
+      }
+      return desc;
+    },
+    // Report the real target's prototype
+    getPrototypeOf(_obj) {
+      return Object.getPrototypeOf(target);
+    },
+    // Report the real target's extensibility
+    isExtensible(_obj) {
+      return Object.isExtensible(target);
+    },
+    // Prevent mutation
+    set() {
+      return false;
+    },
+    deleteProperty() {
+      return false;
+    }
+  });
+  cache.set(target, proxy);
+  proxyPathMap.set(proxy, parentPath);
+  return proxy;
+}
+
+// src/signals/useSignalSelector.ts
+var { useRef, useMemo, useEffect, useSyncExternalStore } = React;
+function useSignalSelector(selector, equalityFn = Object.is) {
+  const { store, registry, engine } = useSignalContext();
+  const selectorRef = useRef(selector);
+  const equalityFnRef = useRef(equalityFn);
+  useIsomorphicLayoutEffect(() => {
+    selectorRef.current = selector;
+    equalityFnRef.current = equalityFn;
+  });
+  const bridge = useMemo(() => {
+    let currentResult;
+    let version = 0;
+    let notifyReact = null;
+    let effectDispose = null;
+    const selectorComputed = engine.computed(() => {
+      const state = store.getState();
+      const proxy = createTrackingProxy(state, "", registry, registry.proxyCache);
+      const result = selectorRef.current(proxy);
+      const proxyPath = getProxyPath(result);
+      if (proxyPath !== void 0) {
+        registry.getOrCreate(proxyPath, result).get();
+      }
+      return result;
+    });
+    currentResult = selectorComputed.get();
+    return {
+      subscribe(onStoreChange) {
+        notifyReact = onStoreChange;
+        const scope = engine.createScope();
+        effectDispose = scope.run(() => {
+          let isFirst = true;
+          return engine.effect(() => {
+            const newValue = selectorComputed.get();
+            if (isFirst) {
+              isFirst = false;
+              return;
+            }
+            if (!equalityFnRef.current(currentResult, newValue)) {
+              currentResult = newValue;
+              version++;
+              notifyReact == null ? void 0 : notifyReact();
+            }
+          });
+        });
+        return () => {
+          notifyReact = null;
+          effectDispose == null ? void 0 : effectDispose();
+          effectDispose = null;
+        };
+      },
+      getSnapshot() {
+        return currentResult;
+      }
+    };
+  }, [store, registry, engine]);
+  useEffect(() => {
+    return () => {
+    };
+  }, [bridge]);
+  return useSyncExternalStore(bridge.subscribe, bridge.getSnapshot);
+}
 
 // src/hooks/useReduxContext.ts
 function createReduxContextHook(context = ReactReduxContext) {
@@ -988,79 +1389,8 @@ function createDispatchHook(context = ReactReduxContext) {
 }
 var useDispatch = /* @__PURE__ */ createDispatchHook();
 
-// src/utils/useSyncExternalStoreWithSelector.ts
-import * as React2 from "react";
-import { useSyncExternalStore } from "react";
-function is2(x, y) {
-  return x === y && (x !== 0 || 1 / x === 1 / y) || x !== x && y !== y;
-}
-var { useRef, useEffect, useMemo, useDebugValue } = React2;
-function useSyncExternalStoreWithSelector(subscribe, getSnapshot, getServerSnapshot, selector, isEqual) {
-  const instRef = useRef(null);
-  let inst;
-  if (instRef.current === null) {
-    inst = {
-      hasValue: false,
-      value: null
-    };
-    instRef.current = inst;
-  } else {
-    inst = instRef.current;
-  }
-  const [getSelection, getServerSelection] = useMemo(() => {
-    let hasMemo = false;
-    let memoizedSnapshot;
-    let memoizedSelection;
-    const memoizedSelector = (nextSnapshot) => {
-      if (!hasMemo) {
-        hasMemo = true;
-        memoizedSnapshot = nextSnapshot;
-        const nextSelection2 = selector(nextSnapshot);
-        if (isEqual !== void 0) {
-          if (inst.hasValue) {
-            const currentSelection = inst.value;
-            if (isEqual(currentSelection, nextSelection2)) {
-              memoizedSelection = currentSelection;
-              return currentSelection;
-            }
-          }
-        }
-        memoizedSelection = nextSelection2;
-        return nextSelection2;
-      }
-      const prevSnapshot = memoizedSnapshot;
-      const prevSelection = memoizedSelection;
-      if (is2(prevSnapshot, nextSnapshot)) {
-        return prevSelection;
-      }
-      const nextSelection = selector(nextSnapshot);
-      if (isEqual !== void 0 && isEqual(prevSelection, nextSelection)) {
-        memoizedSnapshot = nextSnapshot;
-        return prevSelection;
-      }
-      memoizedSnapshot = nextSnapshot;
-      memoizedSelection = nextSelection;
-      return nextSelection;
-    };
-    const maybeGetServerSnapshot = getServerSnapshot === void 0 ? null : getServerSnapshot;
-    const getSnapshotWithSelector = () => memoizedSelector(getSnapshot());
-    const getServerSnapshotWithSelector = maybeGetServerSnapshot === null ? void 0 : () => memoizedSelector(maybeGetServerSnapshot());
-    return [getSnapshotWithSelector, getServerSnapshotWithSelector];
-  }, [getSnapshot, getServerSnapshot, selector, isEqual]);
-  const value = useSyncExternalStore(
-    subscribe,
-    getSelection,
-    getServerSelection
-  );
-  useEffect(() => {
-    inst.hasValue = true;
-    inst.value = value;
-  }, [value]);
-  useDebugValue(value);
-  return value;
-}
-
 // src/hooks/useSelector.ts
+import { useSyncExternalStoreWithSelector } from "use-sync-external-store/with-selector.js";
 var refEquality = (a, b) => a === b;
 function createSelectorHook(context = ReactReduxContext) {
   const useReduxContext2 = context === ReactReduxContext ? useReduxContext : createReduxContextHook(context);
@@ -1154,18 +1484,20 @@ function createSelectorHook(context = ReactReduxContext) {
   });
   return useSelector2;
 }
-var useSelector = /* @__PURE__ */ createSelectorHook();
 
 // src/exports.ts
+var useSelector = useSignalSelector;
+var Provider = SignalProvider;
 var batch = defaultNoopBatch;
 export {
-  Provider_default as Provider,
+  Provider,
   ReactReduxContext,
   batch,
-  connect_default as connect,
+  connect,
   createDispatchHook,
   createSelectorHook,
   createStoreHook,
+  legacy_connect,
   shallowEqual,
   useDispatch,
   useSelector,
