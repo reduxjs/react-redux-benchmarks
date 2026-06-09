@@ -952,7 +952,20 @@ function createPathSignalRegistry(engine) {
   const signals = /* @__PURE__ */ new Map();
   const prefixCounts = /* @__PURE__ */ new Map();
   const prefixOnlyPaths = /* @__PURE__ */ new Set();
+  const childIndex = /* @__PURE__ */ new Map();
   const proxyWeakMap = /* @__PURE__ */ new WeakMap();
+  const arrayMetas = /* @__PURE__ */ new Map();
+  function addToChildIndex(pathKey) {
+    const idx = pathKey.lastIndexOf(".");
+    if (idx === -1) return;
+    const parent = pathKey.substring(0, idx);
+    let children = childIndex.get(parent);
+    if (!children) {
+      children = /* @__PURE__ */ new Set();
+      childIndex.set(parent, children);
+    }
+    children.add(pathKey);
+  }
   return {
     getOrCreate(pathKey, currentValue) {
       let sig = signals.get(pathKey);
@@ -960,6 +973,7 @@ function createPathSignalRegistry(engine) {
         const initialValue = isObjectOrArray(currentValue) ? 0 : currentValue;
         sig = engine.signal(initialValue);
         signals.set(pathKey, sig);
+        addToChildIndex(pathKey);
         if (prefixOnlyPaths.has(pathKey)) {
           prefixOnlyPaths.delete(pathKey);
         } else {
@@ -971,6 +985,7 @@ function createPathSignalRegistry(engine) {
     ensurePrefix(pathKey) {
       if (signals.has(pathKey) || prefixOnlyPaths.has(pathKey)) return;
       prefixOnlyPaths.add(pathKey);
+      addToChildIndex(pathKey);
       incrementPrefixes(prefixCounts, pathKey);
     },
     update(pathKey, newValue) {
@@ -984,17 +999,33 @@ function createPathSignalRegistry(engine) {
       }
     },
     prune(pathKey) {
-      const prefix = pathKey + ".";
-      for (const key of signals.keys()) {
-        if (key === pathKey || key.startsWith(prefix)) {
+      const stack = [pathKey];
+      while (stack.length > 0) {
+        const key = stack.pop();
+        const children = childIndex.get(key);
+        if (children) {
+          for (const child of children) {
+            stack.push(child);
+          }
+          childIndex.delete(key);
+        }
+        if (signals.has(key)) {
           signals.delete(key);
+          decrementPrefixes(prefixCounts, key);
+        } else if (prefixOnlyPaths.has(key)) {
+          prefixOnlyPaths.delete(key);
           decrementPrefixes(prefixCounts, key);
         }
       }
-      for (const key of prefixOnlyPaths) {
-        if (key === pathKey || key.startsWith(prefix)) {
-          prefixOnlyPaths.delete(key);
-          decrementPrefixes(prefixCounts, key);
+      const dotIdx = pathKey.lastIndexOf(".");
+      if (dotIdx !== -1) {
+        const parent = pathKey.substring(0, dotIdx);
+        const parentChildren = childIndex.get(parent);
+        if (parentChildren) {
+          parentChildren.delete(pathKey);
+          if (parentChildren.size === 0) {
+            childIndex.delete(parent);
+          }
         }
       }
     },
@@ -1007,8 +1038,43 @@ function createPathSignalRegistry(engine) {
     hasPrefix(prefix) {
       return (prefixCounts.get(prefix) || 0) > 0;
     },
-    proxyCache: proxyWeakMap
+    proxyCache: proxyWeakMap,
+    getArrayMeta(arrayPath) {
+      return arrayMetas.get(arrayPath);
+    },
+    setArrayMeta(arrayPath, meta) {
+      arrayMetas.set(arrayPath, meta);
+    }
   };
+}
+
+// src/signals/arrayKeys.ts
+var KEY_CANDIDATES = ["id", "key", "_id", "__id"];
+function findKeyField(obj) {
+  if (obj === null || typeof obj !== "object" || Array.isArray(obj)) return void 0;
+  for (let i = 0; i < KEY_CANDIDATES.length; i++) {
+    const candidate = KEY_CANDIDATES[i];
+    if (candidate in obj) {
+      const value = obj[candidate];
+      if (typeof value === "string" || typeof value === "number") {
+        return candidate;
+      }
+    }
+  }
+  return void 0;
+}
+function buildIdentityPath(arrayPath, keyField, keyValue) {
+  return arrayPath ? `${arrayPath}.{${keyField}:${keyValue}}` : `{${keyField}:${keyValue}}`;
+}
+function getKeyValue(element, keyField) {
+  if (element === null || typeof element !== "object" || Array.isArray(element)) {
+    return void 0;
+  }
+  const value = element[keyField];
+  if (typeof value === "string" || typeof value === "number") {
+    return value;
+  }
+  return void 0;
 }
 
 // src/signals/diff.ts
@@ -1017,67 +1083,79 @@ function isPlainObject2(v) {
   const proto = Object.getPrototypeOf(v);
   return proto === Object.prototype || proto === null;
 }
+function diffObject(prev, next, parentPath, registry) {
+  const nextKeys = Object.keys(next);
+  const prevKeys = Object.keys(prev);
+  let keysChanged = prevKeys.length !== nextKeys.length;
+  if (parentPath) {
+    registry.update(parentPath, next);
+  }
+  for (let i = 0; i < nextKeys.length; i++) {
+    const key = nextKeys[i];
+    if (!keysChanged && !(key in prev)) {
+      keysChanged = true;
+    }
+    if (prev[key] === next[key]) continue;
+    const childPath = parentPath ? parentPath + "." + key : key;
+    if (registry.hasPrefix(childPath)) {
+      diffAndUpdateSignals(prev[key], next[key], childPath, registry);
+    }
+  }
+  if (keysChanged) {
+    const keysPath = parentPath ? parentPath + ".@@keys" : "@@keys";
+    registry.update(keysPath, nextKeys);
+    for (let i = 0; i < prevKeys.length; i++) {
+      if (!(prevKeys[i] in next)) {
+        const childPath = parentPath ? parentPath + "." + prevKeys[i] : prevKeys[i];
+        registry.prune(childPath);
+      }
+    }
+  }
+}
+function diffArray(prev, next, parentPath, registry) {
+  if (parentPath) {
+    registry.update(parentPath, next);
+  }
+  if (prev.length !== next.length) {
+    const keysPath = parentPath ? parentPath + ".@@keys" : "@@keys";
+    registry.update(keysPath, next.length);
+    const lengthPath = parentPath ? parentPath + ".length" : "length";
+    registry.update(lengthPath, next.length);
+  }
+  let meta = registry.getArrayMeta(parentPath);
+  if (meta) {
+    if (meta.entityMap.size === 0 && prev.length > 0) {
+      for (let i = 0; i < prev.length; i++) {
+        const kv = getKeyValue(prev[i], meta.keyField);
+        if (kv !== void 0) meta.entityMap.set(kv, prev[i]);
+      }
+    }
+  } else if (next.length > 0) {
+    const keyField = findKeyField(next[0]);
+    if (keyField) {
+      const entityMap = /* @__PURE__ */ new Map();
+      for (let i = 0; i < prev.length; i++) {
+        const kv = getKeyValue(prev[i], keyField);
+        if (kv !== void 0) entityMap.set(kv, prev[i]);
+      }
+      meta = { keyField, entityMap };
+      registry.setArrayMeta(parentPath, meta);
+    }
+  }
+  if (meta) {
+    diffArrayByKey(prev, next, parentPath, registry, meta);
+  } else {
+    diffArrayByIndex(prev, next, parentPath, registry);
+  }
+}
 function diffAndUpdateSignals(prev, next, parentPath, registry) {
   if (prev === next) return;
   if (isPlainObject2(prev) && isPlainObject2(next)) {
-    const nextKeys = Object.keys(next);
-    const prevKeyCount = Object.keys(prev).length;
-    let keysChanged = prevKeyCount !== nextKeys.length;
-    if (parentPath) {
-      registry.update(parentPath, next);
-    }
-    for (let i = 0; i < nextKeys.length; i++) {
-      const key = nextKeys[i];
-      const childPath = parentPath ? parentPath + "." + key : key;
-      if (!keysChanged && !(key in prev)) {
-        keysChanged = true;
-      }
-      if (registry.hasPrefix(childPath)) {
-        diffAndUpdateSignals(prev[key], next[key], childPath, registry);
-      }
-    }
-    if (keysChanged) {
-      const keysPath = parentPath ? parentPath + ".@@keys" : "@@keys";
-      registry.update(keysPath, nextKeys);
-      const prevKeys = Object.keys(prev);
-      for (let i = 0; i < prevKeys.length; i++) {
-        if (!(prevKeys[i] in next)) {
-          const childPath = parentPath ? parentPath + "." + prevKeys[i] : prevKeys[i];
-          registry.prune(childPath);
-        }
-      }
-    }
+    diffObject(prev, next, parentPath, registry);
     return;
   }
   if (Array.isArray(prev) && Array.isArray(next)) {
-    if (parentPath) {
-      registry.update(parentPath, next);
-    }
-    if (prev.length !== next.length) {
-      const keysPath = parentPath ? parentPath + ".@@keys" : "@@keys";
-      registry.update(keysPath, next.length);
-      const lengthPath = parentPath ? parentPath + ".length" : "length";
-      registry.update(lengthPath, next.length);
-    }
-    const minLen = Math.min(prev.length, next.length);
-    for (let i = 0; i < minLen; i++) {
-      if (prev[i] !== next[i]) {
-        const childPath = parentPath ? parentPath + "." + i : String(i);
-        if (registry.hasPrefix(childPath)) {
-          diffAndUpdateSignals(prev[i], next[i], childPath, registry);
-        }
-      }
-    }
-    for (let i = minLen; i < next.length; i++) {
-      const childPath = parentPath ? parentPath + "." + i : String(i);
-      if (registry.hasPrefix(childPath)) {
-        diffAndUpdateSignals(void 0, next[i], childPath, registry);
-      }
-    }
-    for (let i = next.length; i < prev.length; i++) {
-      const childPath = parentPath ? parentPath + "." + i : String(i);
-      registry.prune(childPath);
-    }
+    diffArray(prev, next, parentPath, registry);
     return;
   }
   if (parentPath) {
@@ -1085,6 +1163,138 @@ function diffAndUpdateSignals(prev, next, parentPath, registry) {
   }
   if (prev !== null && typeof prev === "object" && (next === null || typeof next !== "object")) {
     registry.prune(parentPath);
+  }
+}
+function diffArrayByKey(prev, next, parentPath, registry, meta) {
+  const { keyField, entityMap: prevEntityMap } = meta;
+  if (prev.length === next.length) {
+    let usedFastPath = true;
+    for (let i = 0; i < next.length; i++) {
+      if (prev[i] === next[i]) continue;
+      const prevKv = getKeyValue(prev[i], keyField);
+      const nextKv = getKeyValue(next[i], keyField);
+      if (prevKv === void 0 || nextKv === void 0 || prevKv !== nextKv) {
+        usedFastPath = false;
+        break;
+      }
+      const identityPath = buildIdentityPath(parentPath, keyField, nextKv);
+      if (registry.hasPrefix(identityPath)) {
+        diffAndUpdateSignals(prev[i], next[i], identityPath, registry);
+      }
+      prevEntityMap.set(nextKv, next[i]);
+    }
+    if (usedFastPath) {
+      return;
+    }
+    for (let i = 0; i < prev.length; i++) {
+      const kv = getKeyValue(prev[i], keyField);
+      if (kv !== void 0) prevEntityMap.set(kv, prev[i]);
+    }
+  }
+  const minLen = Math.min(prev.length, next.length);
+  let startIdx = 0;
+  while (startIdx < minLen && prev[startIdx] === next[startIdx]) {
+    startIdx++;
+  }
+  if (startIdx === minLen && next.length >= prev.length) {
+    for (let i = startIdx; i < next.length; i++) {
+      const nextItem = next[i];
+      const kv = getKeyValue(nextItem, keyField);
+      if (kv !== void 0) {
+        prevEntityMap.set(kv, nextItem);
+        const identityPath = buildIdentityPath(parentPath, keyField, kv);
+        if (registry.hasPrefix(identityPath)) {
+          diffAndUpdateSignals(void 0, nextItem, identityPath, registry);
+        }
+      }
+    }
+    return;
+  }
+  if (startIdx === minLen && prev.length > next.length) {
+    for (let i = startIdx; i < prev.length; i++) {
+      const prevItem = prev[i];
+      const kv = getKeyValue(prevItem, keyField);
+      if (kv !== void 0) {
+        prevEntityMap.delete(kv);
+        const identityPath = buildIdentityPath(parentPath, keyField, kv);
+        registry.prune(identityPath);
+      }
+    }
+    return;
+  }
+  const mayHaveRemovals = next.length < prev.length;
+  const nextEntityMap = /* @__PURE__ */ new Map();
+  for (let i = 0; i < startIdx; i++) {
+    const kv = getKeyValue(next[i], keyField);
+    if (kv !== void 0) nextEntityMap.set(kv, next[i]);
+  }
+  const seenPrevKeys = mayHaveRemovals ? /* @__PURE__ */ new Set() : null;
+  if (seenPrevKeys) {
+    for (let i = 0; i < startIdx; i++) {
+      const kv = getKeyValue(prev[i], keyField);
+      if (kv !== void 0) seenPrevKeys.add(kv);
+    }
+  }
+  for (let i = startIdx; i < next.length; i++) {
+    const nextItem = next[i];
+    const kv = getKeyValue(nextItem, keyField);
+    if (kv === void 0) {
+      const childPath = parentPath ? parentPath + "." + i : String(i);
+      if (registry.hasPrefix(childPath)) {
+        const prevItem2 = i < prev.length ? prev[i] : void 0;
+        if (prevItem2 !== nextItem) {
+          diffAndUpdateSignals(prevItem2, nextItem, childPath, registry);
+        }
+      }
+      continue;
+    }
+    nextEntityMap.set(kv, nextItem);
+    const prevItem = prevEntityMap.get(kv);
+    if (prevItem === nextItem) {
+      if (seenPrevKeys) seenPrevKeys.add(kv);
+      continue;
+    }
+    if (seenPrevKeys) seenPrevKeys.add(kv);
+    const identityPath = buildIdentityPath(parentPath, keyField, kv);
+    if (prevItem !== void 0) {
+      if (registry.hasPrefix(identityPath)) {
+        diffAndUpdateSignals(prevItem, nextItem, identityPath, registry);
+      }
+    } else {
+      if (registry.hasPrefix(identityPath)) {
+        diffAndUpdateSignals(void 0, nextItem, identityPath, registry);
+      }
+    }
+  }
+  if (seenPrevKeys) {
+    for (const [kv] of prevEntityMap) {
+      if (!seenPrevKeys.has(kv)) {
+        const identityPath = buildIdentityPath(parentPath, keyField, kv);
+        registry.prune(identityPath);
+      }
+    }
+  }
+  meta.entityMap = nextEntityMap;
+}
+function diffArrayByIndex(prev, next, parentPath, registry) {
+  const minLen = Math.min(prev.length, next.length);
+  for (let i = 0; i < minLen; i++) {
+    if (prev[i] !== next[i]) {
+      const childPath = parentPath ? parentPath + "." + i : String(i);
+      if (registry.hasPrefix(childPath)) {
+        diffAndUpdateSignals(prev[i], next[i], childPath, registry);
+      }
+    }
+  }
+  for (let i = minLen; i < next.length; i++) {
+    const childPath = parentPath ? parentPath + "." + i : String(i);
+    if (registry.hasPrefix(childPath)) {
+      diffAndUpdateSignals(void 0, next[i], childPath, registry);
+    }
+  }
+  for (let i = next.length; i < prev.length; i++) {
+    const childPath = parentPath ? parentPath + "." + i : String(i);
+    registry.prune(childPath);
   }
 }
 function reconcileState(prev, next, registry, engine) {
@@ -1208,6 +1418,78 @@ function useSignalContext() {
   return contextValue;
 }
 
+// src/signals/arrayMethodOverrides.ts
+var FIND_METHODS = /* @__PURE__ */ new Set(["find", "findLast"]);
+var OVERRIDDEN_METHODS = /* @__PURE__ */ new Set([
+  // Subset — return proxied results
+  "find",
+  "findLast",
+  "filter",
+  "slice",
+  // Primitive-returning
+  "findIndex",
+  "findLastIndex",
+  "some",
+  "every",
+  "indexOf",
+  "lastIndexOf",
+  "includes",
+  "join",
+  "toString",
+  "toLocaleString",
+  // Transform — return raw values
+  "concat",
+  "flat"
+]);
+function isOverriddenArrayMethod(prop) {
+  return OVERRIDDEN_METHODS.has(prop);
+}
+function normalizeSliceIndex(index, length) {
+  if (index < 0) {
+    return Math.max(length + index, 0);
+  }
+  return Math.min(index, length);
+}
+function createArrayMethodInterceptor(target, proxy, method) {
+  return function intercepted(...args) {
+    const m = method;
+    if (m === "filter") {
+      const predicate = args[0];
+      const result = [];
+      for (let i = 0; i < target.length; i++) {
+        if (predicate(target[i], i, target)) {
+          result.push(proxy[i]);
+        }
+      }
+      return result;
+    }
+    if (FIND_METHODS.has(m)) {
+      const predicate = args[0];
+      const isForward = m === "find";
+      const step = isForward ? 1 : -1;
+      const start = isForward ? 0 : target.length - 1;
+      for (let i = start; i >= 0 && i < target.length; i += step) {
+        if (predicate(target[i], i, target)) {
+          return proxy[i];
+        }
+      }
+      return void 0;
+    }
+    if (m === "slice") {
+      const rawStart = args[0] ?? 0;
+      const rawEnd = args[1] ?? target.length;
+      const start = normalizeSliceIndex(rawStart, target.length);
+      const end = normalizeSliceIndex(rawEnd, target.length);
+      const result = [];
+      for (let i = start; i < end; i++) {
+        result.push(proxy[i]);
+      }
+      return result;
+    }
+    return target[m](...args);
+  };
+}
+
 // src/signals/trackingProxy.ts
 function isObjectOrArray2(v) {
   return v !== null && typeof v === "object";
@@ -1228,10 +1510,29 @@ function createTrackingProxy(target, parentPath, registry, cache) {
       if (typeof prop === "symbol") return Reflect.get(target, prop);
       const value = target[prop];
       if (typeof value === "function") {
+        if (Array.isArray(target) && isOverriddenArrayMethod(prop)) {
+          return createArrayMethodInterceptor(target, proxy, prop);
+        }
         return value;
       }
-      const pathKey = parentPath ? parentPath + "." + prop : prop;
+      let pathKey = parentPath ? parentPath + "." + prop : prop;
       if (isObjectOrArray2(value)) {
+        if (Array.isArray(target) && !Array.isArray(value) && !isNaN(Number(prop))) {
+          let meta = registry.getArrayMeta(parentPath);
+          if (!meta) {
+            const keyField = findKeyField(value);
+            if (keyField) {
+              meta = { keyField, entityMap: /* @__PURE__ */ new Map() };
+              registry.setArrayMeta(parentPath, meta);
+            }
+          }
+          if (meta) {
+            const kv = getKeyValue(value, meta.keyField);
+            if (kv !== void 0) {
+              pathKey = buildIdentityPath(parentPath, meta.keyField, kv);
+            }
+          }
+        }
         registry.ensurePrefix(pathKey);
         const childProxy = createTrackingProxy(
           value,

@@ -43,7 +43,7 @@
     "react-redux": "file:.yalc/react-redux",
     "react-redux-8.1.1": "npm:react-redux@8.1.1",
     "react-redux-9.2.0": "npm:react-redux@9.2.0",
-    "react-redux-9.2.0-signals-selectors": "file:.yalc/react-redux",
+    "react-redux-9.2.0-signals-selectors": "file:.yalc\\react-redux",
     "recursive-copy": "^2.0.9",
     "redux": "^5.0.0",
     "reselect": "^5.0.0",

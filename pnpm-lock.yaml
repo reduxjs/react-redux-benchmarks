@@ -63,7 +63,7 @@ importers:
         specifier: npm:react-redux@9.2.0
         version: react-redux@9.2.0(@types/react@19.2.15)(react@19.2.6)(redux@5.0.1)
       react-redux-9.2.0-signals-selectors:
-        specifier: file:.yalc/react-redux
+        specifier: file:.yalc\react-redux
         version: react-redux@file:.yalc/react-redux(@types/react@19.2.15)(react@19.2.6)(redux@5.0.1)
       recursive-copy:
         specifier: ^2.0.9
