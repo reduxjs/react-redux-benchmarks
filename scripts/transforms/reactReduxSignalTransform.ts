@@ -79,74 +79,86 @@ export function transformSignalProvider(code: string): string {
 /**
  * Instrument the selector computed callback in useSignalSelector.
  *
- * Target pattern in the bundle:
+ * Target pattern in the bundle (as of current yalc build):
  * ```js
  * const selectorComputed = engine.computed(() => {
  *   const state = store.getState();
- *   const proxy = createTrackingProxy(state, [], registry);
- *   return selectorRef.current(proxy);
+ *   const proxy = createTrackingProxy(state, "", registry, registry.proxyCache);
+ *   const result = selectorRef.current(proxy);
+ *   const proxyPath = getProxyPath(result);
+ *   if (proxyPath !== void 0) { ... }
+ *   return result;
  * });
  * ```
  *
- * Wraps the entire computed callback body with signalSelectorTime timing.
- * Strategy: insert timer start before `const state = ...` and replace
- * `return selectorRef.current(proxy)` with temp var + timing + return.
+ * Strategy: insert timer before first statement, insert timing accumulation
+ * before `return result` inside the computed callback.
  */
 export function transformSignalSelector(code: string): string {
   const root = parse(Lang.JavaScript, code).root();
 
-  // Find `const state = store.getState()` inside the computed callback.
-  // This is the first statement in the callback body.
-  const stateDecl = root.find({
+  // Find the first statement inside the computed callback body.
+  // Try `const state = store.getState()` first (separate declaration),
+  // fall back to finding `createTrackingProxy` if state is inlined.
+  const insideComputed = {
+    pattern: "engine.computed($FN)",
+    stopBy: "end",
+  };
+
+  let firstStmt = root.find({
     rule: {
       pattern: "const state = store.getState()",
-      inside: {
-        pattern: "engine.computed($FN)",
-        stopBy: "end",
-      },
+      inside: insideComputed,
     },
   });
 
-  if (!stateDecl) {
+  if (!firstStmt) {
+    // state may be inlined into createTrackingProxy call
+    firstStmt = root.find({
+      rule: {
+        pattern: "const proxy = createTrackingProxy($$$)",
+        inside: insideComputed,
+      },
+    });
+  }
+
+  if (!firstStmt) {
     console.warn(
-      "[instrument] Could not find `const state = store.getState()` inside engine.computed()"
+      "[instrument] Could not find first statement inside engine.computed() callback"
     );
     return code;
   }
 
-  // Find the `return selectorRef.current(proxy)` inside the same computed
+  // Find `return result` inside the same computed
   const returnStmt = root.find({
     rule: {
-      pattern: "return selectorRef.current(proxy)",
-      inside: {
-        pattern: "engine.computed($FN)",
-        stopBy: "end",
-      },
+      pattern: "return result",
+      inside: insideComputed,
     },
   });
 
   if (!returnStmt) {
     console.warn(
-      "[instrument] Could not find `return selectorRef.current(proxy)` inside engine.computed()"
+      "[instrument] Could not find `return result` inside engine.computed()"
     );
     return code;
   }
 
-  const stateRange = stateDecl.range();
+  const firstRange = firstStmt.range();
   const returnRange = returnStmt.range();
 
   const splices: Splice[] = [
-    // Insert timer start before `const state = store.getState()`
+    // Insert timer start before first statement
     {
-      offset: stateRange.start.index,
+      offset: firstRange.start.index,
       deleteCount: 0,
       insert: `const __tss0 = performance.now(); `,
     },
-    // Replace `return selectorRef.current(proxy)` with temp var + timing + return
+    // Insert timing accumulation before `return result`
     {
       offset: returnRange.start.index,
-      deleteCount: returnRange.end.index - returnRange.start.index,
-      insert: `const __tssR = selectorRef.current(proxy); globalThis.__benchInst.signalSelectorTime += performance.now() - __tss0; globalThis.__benchInst.signalSelectorCount++; return __tssR;`,
+      deleteCount: 0,
+      insert: `globalThis.__benchInst.signalSelectorTime += performance.now() - __tss0; globalThis.__benchInst.signalSelectorCount++; `,
     },
   ];
 
