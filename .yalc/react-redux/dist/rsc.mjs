@@ -37,6 +37,7 @@ export {
   throwNotSupportedError as createDispatchHook,
   throwNotSupportedError as createSelectorHook,
   throwNotSupportedError as createStoreHook,
+  throwNotSupportedError as legacy_connect,
   shallowEqual,
   throwNotSupportedError as useDispatch,
   throwNotSupportedError as useSelector,

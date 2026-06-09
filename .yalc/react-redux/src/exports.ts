@@ -1,4 +1,4 @@
-import connect from './components/connect'
+import { connect, legacy_connect } from './components/connect'
 export type {
   Connect,
   ConnectProps,
@@ -7,8 +7,9 @@ export type {
 
 import shallowEqual from './utils/shallowEqual'
 
-import Provider from './components/Provider'
+// import Provider from './components/Provider'
 import { defaultNoopBatch } from './utils/batch'
+import { SignalProvider, useSignalSelector } from './signals'
 
 export { ReactReduxContext } from './components/Context'
 export type { ReactReduxContextValue } from './components/Context'
@@ -32,7 +33,7 @@ export type {
 export { createDispatchHook, useDispatch } from './hooks/useDispatch'
 export type { UseDispatch } from './hooks/useDispatch'
 
-export { createSelectorHook, useSelector } from './hooks/useSelector'
+export { createSelectorHook /*, useSelector*/ } from './hooks/useSelector'
 export type { UseSelector } from './hooks/useSelector'
 
 export { createStoreHook, useStore } from './hooks/useStore'
@@ -42,10 +43,13 @@ export type { Subscription } from './utils/Subscription'
 
 export * from './types'
 
+export const useSelector = useSignalSelector
+export const Provider = SignalProvider
+
 /**
  * @deprecated As of React 18, batching is enabled by default for ReactDOM and React Native.
  * This is now a no-op that immediately runs the callback.
  */
 const batch = defaultNoopBatch
 
-export { Provider, batch, connect, shallowEqual }
+export { /*Provider,*/ batch, connect, legacy_connect, shallowEqual }

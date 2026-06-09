@@ -1,0 +1,1 @@
+export const COMPONENTS_PER_GROUP = 200

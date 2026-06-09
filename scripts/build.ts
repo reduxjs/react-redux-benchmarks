@@ -33,11 +33,9 @@ async function bundle(options: BuildOptions) {
 
   const reactReduxPackageVersion = `react-redux-${reactReduxVersion}`
   const reactReduxPkgDir = path.dirname(
-    require.resolve(`${reactReduxPackageVersion}/package.json`)
+    require.resolve(`${reactReduxPackageVersion}/package.json`),
   )
-  const reactReduxPkg = require(
-    `${reactReduxPackageVersion}/package.json`
-  )
+  const reactReduxPkg = require(`${reactReduxPackageVersion}/package.json`)
   // Prefer ESM entry from exports, fall back to CJS
   const reactReduxEntry = reactReduxPkg.exports?.['.']?.import
     ? path.join(reactReduxPkgDir, reactReduxPkg.exports['.'].import)
@@ -78,11 +76,16 @@ async function bundle(options: BuildOptions) {
     name: 'babel-runtime-cjs-fix',
     enforce: 'pre',
     resolveId(source) {
-      if (source.startsWith('@babel/runtime/helpers/') && !source.includes('/esm/')) {
+      if (
+        source.startsWith('@babel/runtime/helpers/') &&
+        !source.includes('/esm/')
+      ) {
         // Resolve to the CJS file directly, bypassing the exports map
         const helperName = source.replace('@babel/runtime/helpers/', '')
         try {
-          const cjsPath = require.resolve(`@babel/runtime/helpers/${helperName}`)
+          const cjsPath = require.resolve(
+            `@babel/runtime/helpers/${helperName}`,
+          )
           return cjsPath
         } catch {
           return undefined
@@ -109,23 +112,92 @@ async function bundle(options: BuildOptions) {
     build: {
       outDir: outputFolder,
       emptyOutDir: true,
-      sourcemap: 'inline',
+      sourcemap: false,
       minify: false,
-      lib: {
-        entry: entryPoint,
-        formats: ['iife'],
-        name: 'benchmark',
-        fileName: () => 'index.js',
+      rollupOptions: {
+        input: entryPoint,
+        output: {
+          format: 'esm',
+          entryFileNames: 'app.js',
+          chunkFileNames: '[name].js',
+          manualChunks(id: string) {
+            const normalized = id.replace(/\\/g, '/')
+            // Only classify files inside node_modules
+            if (!normalized.includes('/node_modules/')) return
+            if (
+              normalized.includes('/react-dom/') ||
+              normalized.includes('/scheduler/')
+            ) {
+              return 'react-dom'
+            }
+            if (normalized.includes('/node_modules/react/')) {
+              return 'react'
+            }
+            if (
+              normalized.includes('/node_modules/react-redux/') ||
+              normalized.includes('/node_modules/react-redux-')
+            ) {
+              return 'react-redux'
+            }
+            if (
+              normalized.includes('/@reduxjs/toolkit/') ||
+              normalized.includes('/node_modules/redux/') ||
+              normalized.includes('/node_modules/reselect/') ||
+              normalized.includes('/node_modules/immer/') ||
+              normalized.includes('/node_modules/redux-thunk/') ||
+              normalized.includes('/use-sync-external-store/')
+            ) {
+              return 'redux-toolkit'
+            }
+          },
+        },
       },
-
     },
   })
 
   // Copy over the HTML host page
   fs.copyFileSync(
     'src/common/index.html',
-    path.join(outputFolder, 'index.html')
+    path.join(outputFolder, 'index.html'),
   )
+}
+
+function generateDistIndex(versions: string[], scenarios: string[]) {
+  const links = versions
+    .map((version) => {
+      const scenarioLinks = scenarios
+        .map(
+          (s) =>
+            `      <li><a href="./${version}/${s}/index.html">${s}</a></li>`,
+        )
+        .join('\n')
+      return `    <h2>${version}</h2>\n    <ul>\n${scenarioLinks}\n    </ul>`
+    })
+    .join('\n')
+
+  const html = `<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>React-Redux Benchmarks</title>
+  <style>
+    body { font-family: system-ui, sans-serif; max-width: 800px; margin: 2rem auto; padding: 0 1rem; }
+    h1 { border-bottom: 1px solid #ccc; padding-bottom: 0.5rem; }
+    h2 { margin-top: 1.5rem; color: #333; }
+    ul { columns: 2; column-gap: 2rem; }
+    li { margin: 0.25rem 0; }
+    a { color: #0366d6; text-decoration: none; }
+    a:hover { text-decoration: underline; }
+  </style>
+</head>
+<body>
+  <h1>React-Redux Benchmarks</h1>
+${links}
+</body>
+</html>`
+
+  fs.writeFileSync(path.join(outputDir, 'index.html'), html)
+  console.log('Generated dist/index.html')
 }
 
 async function main() {
@@ -138,10 +210,12 @@ async function main() {
     console.log(`Building projects for version: ${version}...`)
 
     const bundlePromises = allScenarios.map((scenarioName) =>
-      bundle({ scenarioName, reactReduxVersion: version })
+      bundle({ scenarioName, reactReduxVersion: version }),
     )
     await Promise.all(bundlePromises)
   }
+
+  generateDistIndex(availableVersions, allScenarios)
 }
 
 console.log('Available versions: ', availableVersions)

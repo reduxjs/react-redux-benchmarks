@@ -71,7 +71,7 @@ typings/
 
 .idea/
 runs/
-dist/
+dist*/
 build/
 profiles/
 

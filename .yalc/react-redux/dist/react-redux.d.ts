@@ -1,5 +1,5 @@
 import * as React from 'react';
-import { MemoExoticComponent, ForwardRefExoticComponent, Context, ReactNode, ComponentType, ComponentClass, ClassAttributes, JSX, FunctionComponent } from 'react';
+import { MemoExoticComponent, ForwardRefExoticComponent, Context, ReactNode, ComponentType, ComponentClass, ClassAttributes, FunctionComponent, JSX } from 'react';
 import { Action, UnknownAction, Store, Dispatch } from 'redux';
 
 /**
@@ -112,7 +112,6 @@ interface ProviderProps<A extends Action<string> = UnknownAction, S = unknown> {
     identityFunctionCheck?: DevModeCheckFrequency;
     children: ReactNode;
 }
-declare function Provider<A extends Action<string> = UnknownAction, S = unknown>(providerProps: ProviderProps<A, S>): React.JSX.Element;
 
 interface ReactReduxContextValue<SS = any, A extends Action<string> = UnknownAction> extends Pick<ProviderProps, 'stabilityCheck' | 'identityFunctionCheck'> {
     store: Store<SS, A>;
@@ -224,30 +223,6 @@ interface UseSelector<StateType = unknown> {
  * @returns {Function} A `useSelector` hook bound to the specified context.
  */
 declare function createSelectorHook(context?: React.Context<ReactReduxContextValue<any, any> | null>): UseSelector;
-/**
- * A hook to access the redux store's state. This hook takes a selector function
- * as an argument. The selector is called with the store state.
- *
- * This hook takes an optional equality comparison function as the second parameter
- * that allows you to customize the way the selected state is compared to determine
- * whether the component needs to be re-rendered.
- *
- * @param {Function} selector the selector function
- * @param {Function=} equalityFn the function that will be used to determine equality
- *
- * @returns {any} the selected state
- *
- * @example
- *
- * import React from 'react'
- * import { useSelector } from 'react-redux'
- *
- * export const CounterComponent = () => {
- *   const counter = useSelector(state => state.counter)
- *   return <div>{counter}</div>
- * }
- */
-declare const useSelector: UseSelector<unknown>;
 
 type FixTypeLater = any;
 type EqualityFn<T> = (a: T, b: T) => boolean;
@@ -355,6 +330,8 @@ interface ConnectOptions<State = unknown, TStateProps = {}, TOwnProps = {}, TMer
     areMergedPropsEqual?: (nextMergedProps: TMergedProps, prevMergedProps: TMergedProps) => boolean;
 }
 /**
+
+ *
  * Connects a React component to a Redux store.
  *
  * - Without arguments, just wraps the component, without changing the behavior / props
@@ -406,11 +383,63 @@ interface Connect<DefaultState = unknown> {
     /** mapState, mapDispatch, mergeProps, and options */
     <TStateProps = {}, TDispatchProps = {}, TOwnProps = {}, TMergedProps = {}, State = DefaultState>(mapStateToProps: MapStateToPropsParam<TStateProps, TOwnProps, State>, mapDispatchToProps: MapDispatchToPropsParam<TDispatchProps, TOwnProps>, mergeProps: MergeProps<TStateProps, TDispatchProps, TOwnProps, TMergedProps>, options?: ConnectOptions<State, TStateProps, TOwnProps, TMergedProps>): InferableComponentEnhancerWithProps<TMergedProps, TOwnProps>;
 }
-declare const _default: Connect;
+/**
+ *  * @deprecated
+ *
+ * **We recommend using the `useSelector` and `useDispatch` hooks instead.**
+ * See https://react-redux.js.org/api/hooks
+ *
+ * If you need to use `connect` without this visual deprecation warning,
+ * import `legacy_connect` instead:
+ *
+ * `import { legacy_connect as connect } from 'react-redux'`
+ */
+declare const connect: Connect;
+/**
+ * Connects a React component to a Redux store. Same as `connect` but without
+ * the deprecation warning.
+ *
+ * **We recommend using the `useSelector` and `useDispatch` hooks instead.**
+ * See https://react-redux.js.org/api/hooks
+ */
+declare const legacy_connect: Connect;
 
 declare function shallowEqual(objA: any, objB: any): boolean;
 
 declare function defaultNoopBatch(callback: () => void): void;
+
+interface ReactiveSignal<T> {
+    get(): T;
+    set(value: T): void;
+}
+interface ReactiveComputed<T> {
+    get(): T;
+}
+interface SignalEngine {
+    signal<T>(value: T): ReactiveSignal<T>;
+    computed<T>(fn: () => T): ReactiveComputed<T>;
+    effect(fn: () => void): void;
+    batch(fn: () => void): void;
+    createScope(): SignalScope;
+}
+interface SignalScope {
+    run<T>(fn: () => T): T;
+    stop(): void;
+}
+
+interface SignalProviderProps<A extends Action<string> = UnknownAction, S = unknown> extends ProviderProps<A, S> {
+    engine?: SignalEngine;
+}
+declare function SignalProvider<S extends object, A extends Action = UnknownAction>(providerProps: SignalProviderProps<A, S>): React.JSX.Element;
+
+/**
+ * A React hook that selects state from a Redux store using signal-based
+ * dependency tracking. Only re-renders when the selected value actually
+ * changes, with O(k) selectivity where k = number of affected selectors.
+ *
+ * Must be used within a <SignalProvider>.
+ */
+declare function useSignalSelector<S extends object, R>(selector: (state: S) => R, equalityFn?: (a: R, b: R) => boolean): R;
 
 /**
  * Represents a custom hook that provides a dispatch function
@@ -557,10 +586,12 @@ declare function createStoreHook<StateType = unknown, ActionType extends Action 
  */
 declare const useStore: UseStore<Store<unknown, Action, unknown>>;
 
+declare const useSelector: typeof useSignalSelector;
+declare const Provider: typeof SignalProvider;
 /**
  * @deprecated As of React 18, batching is enabled by default for ReactDOM and React Native.
  * This is now a no-op that immediately runs the callback.
  */
 declare const batch: typeof defaultNoopBatch;
 
-export { type AnyIfEmpty, type Connect, type ConnectProps, type ConnectPropsMaybeWithoutContext, type ConnectedComponent, type ConnectedProps, type DispatchProp, type DistributiveOmit, type EqualityFn, type ExtendedEqualityFn, type FixTypeLater, type GetLibraryManagedProps, type GetProps, type HandleThunkActionCreator, type InferThunkActionCreatorType, type InferableComponentEnhancer, type InferableComponentEnhancerWithProps, type MapDispatchToProps, type MapDispatchToPropsFactory, type MapDispatchToPropsFunction, type MapDispatchToPropsNonObject, type MapDispatchToPropsParam, type MapStateToProps, type MapStateToPropsFactory, type MapStateToPropsParam, type Mapped, type Matching, type MergeProps, type NoInfer, Provider, type ProviderProps, ReactReduxContext, type ReactReduxContextValue, type ResolveThunks, type Selector, type SelectorFactory, type Shared, type Subscription, type TypedUseSelectorHook, type UseDispatch, type UseSelector, type UseStore, batch, _default as connect, createDispatchHook, createSelectorHook, createStoreHook, shallowEqual, useDispatch, useSelector, useStore };
+export { type AnyIfEmpty, type Connect, type ConnectProps, type ConnectPropsMaybeWithoutContext, type ConnectedComponent, type ConnectedProps, type DispatchProp, type DistributiveOmit, type EqualityFn, type ExtendedEqualityFn, type FixTypeLater, type GetLibraryManagedProps, type GetProps, type HandleThunkActionCreator, type InferThunkActionCreatorType, type InferableComponentEnhancer, type InferableComponentEnhancerWithProps, type MapDispatchToProps, type MapDispatchToPropsFactory, type MapDispatchToPropsFunction, type MapDispatchToPropsNonObject, type MapDispatchToPropsParam, type MapStateToProps, type MapStateToPropsFactory, type MapStateToPropsParam, type Mapped, type Matching, type MergeProps, type NoInfer, Provider, type ProviderProps, ReactReduxContext, type ReactReduxContextValue, type ResolveThunks, type Selector, type SelectorFactory, type Shared, type Subscription, type TypedUseSelectorHook, type UseDispatch, type UseSelector, type UseStore, batch, connect, createDispatchHook, createSelectorHook, createStoreHook, legacy_connect, shallowEqual, useDispatch, useSelector, useStore };

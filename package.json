@@ -6,7 +6,9 @@
   "scripts": {
     "start": "tsx ./runBenchmarks.ts",
     "format": "prettier --write \"sources/**/src/*.{js,jsx,ts,tsx}\" *.js",
-    "build": "tsx scripts/build.ts"
+    "build": "tsx scripts/build.ts",
+    "build:node": "tsx scripts/build-node.ts",
+    "serve": "npx http-server dist -o"
   },
   "repository": {
     "type": "git",
@@ -41,18 +43,18 @@
     "react-redux": "file:.yalc/react-redux",
     "react-redux-8.1.1": "npm:react-redux@8.1.1",
     "react-redux-9.2.0": "npm:react-redux@9.2.0",
-    "react-redux-9.2.0-shallow-checks": "file:.yalc/react-redux",
+    "react-redux-9.2.0-signals-selectors": "file:.yalc\\react-redux",
     "recursive-copy": "^2.0.9",
     "redux": "^5.0.0",
     "reselect": "^5.0.0",
     "seedrandom": "^3.0.5",
-    "source-map-js": "^1.2.1",
     "tsx": "^4.19.2",
     "use-sync-external-store": "latest",
     "yargs": "^17"
   },
   "devDependencies": {
     "@ast-grep/napi": "^0.43.0",
+    "@happy-dom/global-registrator": "^20.10.1",
     "@types/cli-table2": "^0.2.3",
     "@types/express": "^4.17.17",
     "@types/fs-extra": "^9.0.12",
@@ -61,7 +63,9 @@
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "@typescript/native-preview": "beta",
+    "alien-signals": "^3.2.1",
     "fs-extra": "^10.0.0",
+    "happy-dom": "^18.0.1",
     "prettier": "latest",
     "vite": "^8"
   },
