@@ -38,18 +38,19 @@ export function transformSignalProvider(code: string): string {
   });
 
   if (!reconcileCall) {
-    console.warn(
-      "[instrument] Could not find reconcileState(prev, next, registry, engine) call"
+    throw new Error(
+      "[instrument] transformSignalProvider FAILED: Could not find reconcileState(prev, next, registry, engine) call. " +
+      "The react-redux bundle patterns may have changed. Update the ast-grep pattern in reactReduxSignalTransform.ts."
     );
-    return code;
   }
 
   // Navigate to the expression_statement parent so we wrap the full statement
   // including its semicolon, not just the call expression.
   const reconcileStmt = reconcileCall.parent();
   if (!reconcileStmt) {
-    console.warn("[instrument] Could not find parent statement of reconcileState call");
-    return code;
+    throw new Error(
+      "[instrument] transformSignalProvider FAILED: reconcileState call has no parent statement node."
+    );
   }
 
   const range = reconcileStmt.range();
@@ -123,10 +124,11 @@ export function transformSignalSelector(code: string): string {
   }
 
   if (!firstStmt) {
-    console.warn(
-      "[instrument] Could not find first statement inside engine.computed() callback"
+    throw new Error(
+      "[instrument] transformSignalSelector FAILED: Could not find first statement inside engine.computed() callback. " +
+      "Expected `const state = store.getState()` or `const proxy = createTrackingProxy(...)`. " +
+      "The react-redux bundle patterns may have changed. Update the ast-grep pattern in reactReduxSignalTransform.ts."
     );
-    return code;
   }
 
   // Find `return result` inside the same computed
@@ -138,10 +140,10 @@ export function transformSignalSelector(code: string): string {
   });
 
   if (!returnStmt) {
-    console.warn(
-      "[instrument] Could not find `return result` inside engine.computed()"
+    throw new Error(
+      "[instrument] transformSignalSelector FAILED: Could not find `return result` inside engine.computed(). " +
+      "The react-redux bundle patterns may have changed. Update the ast-grep pattern in reactReduxSignalTransform.ts."
     );
-    return code;
   }
 
   const firstRange = firstStmt.range();
