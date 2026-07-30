@@ -418,7 +418,8 @@ interface ReactiveComputed<T> {
 interface SignalEngine {
     signal<T>(value: T): ReactiveSignal<T>;
     computed<T>(fn: () => T): ReactiveComputed<T>;
-    effect(fn: () => void): void;
+    /** Create an effect. Returns a dispose function that stops it. */
+    effect(fn: () => void): () => void;
     batch(fn: () => void): void;
     createScope(): SignalScope;
 }
@@ -438,8 +439,13 @@ declare function SignalProvider<S extends object, A extends Action = UnknownActi
  * changes, with O(k) selectivity where k = number of affected selectors.
  *
  * Must be used within a <SignalProvider>.
+ * @param selector - Function that extracts a value from the store state
+ * @param equalityFn - Custom equality function for change detection
+ * @returns The selected value
  */
 declare function useSignalSelector<S extends object, R>(selector: (state: S) => R, equalityFn?: (a: R, b: R) => boolean): R;
+
+declare function unwrap<T>(value: T): T;
 
 /**
  * Represents a custom hook that provides a dispatch function
@@ -586,12 +592,12 @@ declare function createStoreHook<StateType = unknown, ActionType extends Action 
  */
 declare const useStore: UseStore<Store<unknown, Action, unknown>>;
 
-declare const useSelector: typeof useSignalSelector;
-declare const Provider: typeof SignalProvider;
 /**
  * @deprecated As of React 18, batching is enabled by default for ReactDOM and React Native.
  * This is now a no-op that immediately runs the callback.
  */
 declare const batch: typeof defaultNoopBatch;
+declare const Provider: typeof SignalProvider;
+declare const useSelector: typeof useSignalSelector;
 
-export { type AnyIfEmpty, type Connect, type ConnectProps, type ConnectPropsMaybeWithoutContext, type ConnectedComponent, type ConnectedProps, type DispatchProp, type DistributiveOmit, type EqualityFn, type ExtendedEqualityFn, type FixTypeLater, type GetLibraryManagedProps, type GetProps, type HandleThunkActionCreator, type InferThunkActionCreatorType, type InferableComponentEnhancer, type InferableComponentEnhancerWithProps, type MapDispatchToProps, type MapDispatchToPropsFactory, type MapDispatchToPropsFunction, type MapDispatchToPropsNonObject, type MapDispatchToPropsParam, type MapStateToProps, type MapStateToPropsFactory, type MapStateToPropsParam, type Mapped, type Matching, type MergeProps, type NoInfer, Provider, type ProviderProps, ReactReduxContext, type ReactReduxContextValue, type ResolveThunks, type Selector, type SelectorFactory, type Shared, type Subscription, type TypedUseSelectorHook, type UseDispatch, type UseSelector, type UseStore, batch, connect, createDispatchHook, createSelectorHook, createStoreHook, legacy_connect, shallowEqual, useDispatch, useSelector, useStore };
+export { type AnyIfEmpty, type Connect, type ConnectProps, type ConnectPropsMaybeWithoutContext, type ConnectedComponent, type ConnectedProps, type DispatchProp, type DistributiveOmit, type EqualityFn, type ExtendedEqualityFn, type FixTypeLater, type GetLibraryManagedProps, type GetProps, type HandleThunkActionCreator, type InferThunkActionCreatorType, type InferableComponentEnhancer, type InferableComponentEnhancerWithProps, type MapDispatchToProps, type MapDispatchToPropsFactory, type MapDispatchToPropsFunction, type MapDispatchToPropsNonObject, type MapDispatchToPropsParam, type MapStateToProps, type MapStateToPropsFactory, type MapStateToPropsParam, type Mapped, type Matching, type MergeProps, type NoInfer, Provider, type ProviderProps, ReactReduxContext, type ReactReduxContextValue, type ResolveThunks, type Selector, type SelectorFactory, type Shared, SignalProvider, type Subscription, type TypedUseSelectorHook, type UseDispatch, type UseSelector, type UseStore, batch, connect, createDispatchHook, createSelectorHook, createStoreHook, legacy_connect, shallowEqual, unwrap, useDispatch, useSelector, useSignalSelector, useStore };

@@ -871,7 +871,56 @@ ${latestSubscriptionCallbackError.current.stack}
 var connect = _connect;
 var legacy_connect = _connect;
 
+// src/signals/arrayKeys.ts
+var KEY_CANDIDATES = ["id", "key", "_id", "__id"];
+function findKeyField(obj) {
+  if (obj === null || typeof obj !== "object" || Array.isArray(obj)) return void 0;
+  for (let i = 0; i < KEY_CANDIDATES.length; i++) {
+    const candidate = KEY_CANDIDATES[i];
+    if (candidate in obj) {
+      const value = obj[candidate];
+      if (typeof value === "string" || typeof value === "number") {
+        return candidate;
+      }
+    }
+  }
+  return void 0;
+}
+var NEEDS_ESCAPE = /[%.{}"@]/;
+function encodePathSegment(s) {
+  if (!NEEDS_ESCAPE.test(s)) return s;
+  return s.replace(/%/g, "%25").replace(/\./g, "%2E").replace(/\{/g, "%7B").replace(/\}/g, "%7D").replace(/"/g, "%22").replace(/@/g, "%40");
+}
+function encodeKeyValue(keyValue) {
+  if (typeof keyValue === "number") {
+    if (Number.isInteger(keyValue)) return String(keyValue);
+    return encodePathSegment(String(keyValue));
+  }
+  const escaped = encodePathSegment(keyValue);
+  return String(Number(keyValue)) === keyValue ? '"' + escaped + '"' : escaped;
+}
+function buildIdentityPath(arrayPath, keyField, keyValue) {
+  const segment = `{${keyField}:${encodeKeyValue(keyValue)}}`;
+  return arrayPath ? `${arrayPath}.${segment}` : segment;
+}
+function getKeyValue(element, keyField) {
+  if (element === null || typeof element !== "object" || Array.isArray(element)) {
+    return void 0;
+  }
+  const value = element[keyField];
+  if (typeof value === "string" || typeof value === "number") {
+    return value;
+  }
+  return void 0;
+}
+
 // src/signals/pathSignalRegistry.ts
+function buildColumnPath(arrayPath, prop) {
+  return arrayPath + ".{*}." + encodePathSegment(prop);
+}
+function buildStructurePath(arrayPath, kind) {
+  return arrayPath + ".@@" + kind;
+}
 function isObjectOrArray(v) {
   return v !== null && typeof v === "object";
 }
@@ -908,6 +957,8 @@ function createPathSignalRegistry(engine) {
   const childIndex = /* @__PURE__ */ new Map();
   const proxyWeakMap = /* @__PURE__ */ new WeakMap();
   const arrayMetas = /* @__PURE__ */ new Map();
+  const columnsByArray = /* @__PURE__ */ new Map();
+  const structuresByArray = /* @__PURE__ */ new Map();
   function addToChildIndex(pathKey) {
     const idx = pathKey.lastIndexOf(".");
     if (idx === -1) return;
@@ -919,7 +970,7 @@ function createPathSignalRegistry(engine) {
     }
     children.add(pathKey);
   }
-  return {
+  const registry = {
     getOrCreate(pathKey, currentValue) {
       let sig = signals.get(pathKey);
       if (!sig) {
@@ -955,6 +1006,9 @@ function createPathSignalRegistry(engine) {
       const stack = [pathKey];
       while (stack.length > 0) {
         const key = stack.pop();
+        columnsByArray.delete(key);
+        structuresByArray.delete(key);
+        arrayMetas.delete(key);
         const children = childIndex.get(key);
         if (children) {
           for (const child of children) {
@@ -963,6 +1017,9 @@ function createPathSignalRegistry(engine) {
           childIndex.delete(key);
         }
         if (signals.has(key)) {
+          const sig = signals.get(key);
+          const current = sig.get();
+          sig.set(typeof current === "number" ? current + 1 : current);
           signals.delete(key);
           decrementPrefixes(prefixCounts, key);
         } else if (prefixOnlyPaths.has(key)) {
@@ -982,6 +1039,13 @@ function createPathSignalRegistry(engine) {
         }
       }
     },
+    pruneChildren(pathKey) {
+      const children = childIndex.get(pathKey);
+      if (!children) return;
+      for (const child of Array.from(children)) {
+        registry.prune(child);
+      }
+    },
     size() {
       return signals.size;
     },
@@ -991,43 +1055,56 @@ function createPathSignalRegistry(engine) {
     hasPrefix(prefix) {
       return (prefixCounts.get(prefix) || 0) > 0;
     },
+    debugPaths() {
+      return Array.from(signals.keys()).sort();
+    },
     proxyCache: proxyWeakMap,
+    leafTrackerHolder: { current: void 0 },
     getArrayMeta(arrayPath) {
       return arrayMetas.get(arrayPath);
     },
     setArrayMeta(arrayPath, meta) {
       arrayMetas.set(arrayPath, meta);
+    },
+    trackColumn(arrayPath, prop) {
+      let cols = columnsByArray.get(arrayPath);
+      if (!cols) {
+        cols = /* @__PURE__ */ new Set();
+        columnsByArray.set(arrayPath, cols);
+      }
+      cols.add(prop);
+      registry.ensurePrefix(arrayPath + ".{*}");
+      return registry.getOrCreate(buildColumnPath(arrayPath, prop), 0);
+    },
+    getTrackedColumns(arrayPath) {
+      return columnsByArray.get(arrayPath);
+    },
+    bumpColumn(arrayPath, prop) {
+      const sig = signals.get(buildColumnPath(arrayPath, prop));
+      if (!sig) return;
+      const current = sig.get();
+      sig.set(typeof current === "number" ? current + 1 : 0);
+    },
+    trackStructure(arrayPath, kind) {
+      let kinds = structuresByArray.get(arrayPath);
+      if (!kinds) {
+        kinds = /* @__PURE__ */ new Set();
+        structuresByArray.set(arrayPath, kinds);
+      }
+      kinds.add(kind);
+      return registry.getOrCreate(buildStructurePath(arrayPath, kind), 0);
+    },
+    getTrackedStructures(arrayPath) {
+      return structuresByArray.get(arrayPath);
+    },
+    bumpStructure(arrayPath, kind) {
+      const sig = signals.get(buildStructurePath(arrayPath, kind));
+      if (!sig) return;
+      const current = sig.get();
+      sig.set(typeof current === "number" ? current + 1 : 0);
     }
   };
-}
-
-// src/signals/arrayKeys.ts
-var KEY_CANDIDATES = ["id", "key", "_id", "__id"];
-function findKeyField(obj) {
-  if (obj === null || typeof obj !== "object" || Array.isArray(obj)) return void 0;
-  for (let i = 0; i < KEY_CANDIDATES.length; i++) {
-    const candidate = KEY_CANDIDATES[i];
-    if (candidate in obj) {
-      const value = obj[candidate];
-      if (typeof value === "string" || typeof value === "number") {
-        return candidate;
-      }
-    }
-  }
-  return void 0;
-}
-function buildIdentityPath(arrayPath, keyField, keyValue) {
-  return arrayPath ? `${arrayPath}.{${keyField}:${keyValue}}` : `{${keyField}:${keyValue}}`;
-}
-function getKeyValue(element, keyField) {
-  if (element === null || typeof element !== "object" || Array.isArray(element)) {
-    return void 0;
-  }
-  const value = element[keyField];
-  if (typeof value === "string" || typeof value === "number") {
-    return value;
-  }
-  return void 0;
+  return registry;
 }
 
 // src/signals/diff.ts
@@ -1048,10 +1125,14 @@ function diffObject(prev, next, parentPath, registry) {
     if (!keysChanged && !(key in prev)) {
       keysChanged = true;
     }
-    if (prev[key] === next[key]) continue;
-    const childPath = parentPath ? parentPath + "." + key : key;
+    const prevVal = prev[key];
+    const nextVal = next[key];
+    if (prevVal === nextVal || prevVal !== prevVal && nextVal !== nextVal)
+      continue;
+    const segment = encodePathSegment(key);
+    const childPath = parentPath ? parentPath + "." + segment : segment;
     if (registry.hasPrefix(childPath)) {
-      diffAndUpdateSignals(prev[key], next[key], childPath, registry);
+      diffAndUpdateSignals(prevVal, nextVal, childPath, registry);
     }
   }
   if (keysChanged) {
@@ -1059,7 +1140,8 @@ function diffObject(prev, next, parentPath, registry) {
     registry.update(keysPath, nextKeys);
     for (let i = 0; i < prevKeys.length; i++) {
       if (!(prevKeys[i] in next)) {
-        const childPath = parentPath ? parentPath + "." + prevKeys[i] : prevKeys[i];
+        const segment = encodePathSegment(prevKeys[i]);
+        const childPath = parentPath ? parentPath + "." + segment : segment;
         registry.prune(childPath);
       }
     }
@@ -1101,8 +1183,32 @@ function diffArray(prev, next, parentPath, registry) {
     diffArrayByIndex(prev, next, parentPath, registry);
   }
 }
+function bumpColumnsForElement(prevItem, nextItem, parentPath, registry, cols, fired) {
+  if (prevItem !== null && nextItem !== null && typeof prevItem === "object" && typeof nextItem === "object") {
+    for (const prop of cols) {
+      if (fired.has(prop)) continue;
+      if (prevItem[prop] !== nextItem[prop]) {
+        registry.bumpColumn(parentPath, prop);
+        fired.add(prop);
+      }
+    }
+  } else {
+    for (const prop of cols) {
+      if (!fired.has(prop)) {
+        registry.bumpColumn(parentPath, prop);
+        fired.add(prop);
+      }
+    }
+  }
+}
+function bumpAllColumns(parentPath, registry, cols) {
+  if (!cols) return;
+  for (const prop of cols) {
+    registry.bumpColumn(parentPath, prop);
+  }
+}
 function diffAndUpdateSignals(prev, next, parentPath, registry) {
-  if (prev === next) return;
+  if (prev === next || prev !== prev && next !== next) return;
   if (isPlainObject2(prev) && isPlainObject2(next)) {
     diffObject(prev, next, parentPath, registry);
     return;
@@ -1114,12 +1220,19 @@ function diffAndUpdateSignals(prev, next, parentPath, registry) {
   if (parentPath) {
     registry.update(parentPath, next);
   }
-  if (prev !== null && typeof prev === "object" && (next === null || typeof next !== "object")) {
-    registry.prune(parentPath);
+  if (prev !== null && typeof prev === "object") {
+    if (next === null || typeof next !== "object") {
+      registry.prune(parentPath);
+    } else {
+      registry.pruneChildren(parentPath);
+    }
   }
 }
 function diffArrayByKey(prev, next, parentPath, registry, meta) {
   const { keyField, entityMap: prevEntityMap } = meta;
+  const cols = registry.getTrackedColumns(parentPath);
+  const fired = cols && cols.size > 0 ? /* @__PURE__ */ new Set() : null;
+  const structs = registry.getTrackedStructures(parentPath);
   if (prev.length === next.length) {
     let usedFastPath = true;
     for (let i = 0; i < next.length; i++) {
@@ -1133,6 +1246,9 @@ function diffArrayByKey(prev, next, parentPath, registry, meta) {
       const identityPath = buildIdentityPath(parentPath, keyField, nextKv);
       if (registry.hasPrefix(identityPath)) {
         diffAndUpdateSignals(prev[i], next[i], identityPath, registry);
+      }
+      if (fired && cols) {
+        bumpColumnsForElement(prev[i], next[i], parentPath, registry, cols, fired);
       }
       prevEntityMap.set(nextKv, next[i]);
     }
@@ -1150,6 +1266,9 @@ function diffArrayByKey(prev, next, parentPath, registry, meta) {
     startIdx++;
   }
   if (startIdx === minLen && next.length >= prev.length) {
+    if (structs && next.length > prev.length) {
+      registry.bumpStructure(parentPath, "append");
+    }
     for (let i = startIdx; i < next.length; i++) {
       const nextItem = next[i];
       const kv = getKeyValue(nextItem, keyField);
@@ -1164,6 +1283,9 @@ function diffArrayByKey(prev, next, parentPath, registry, meta) {
     return;
   }
   if (startIdx === minLen && prev.length > next.length) {
+    if (structs) {
+      registry.bumpStructure(parentPath, "remove");
+    }
     for (let i = startIdx; i < prev.length; i++) {
       const prevItem = prev[i];
       const kv = getKeyValue(prevItem, keyField);
@@ -1175,43 +1297,84 @@ function diffArrayByKey(prev, next, parentPath, registry, meta) {
     }
     return;
   }
-  const mayHaveRemovals = next.length < prev.length;
   const nextEntityMap = /* @__PURE__ */ new Map();
   for (let i = 0; i < startIdx; i++) {
     const kv = getKeyValue(next[i], keyField);
     if (kv !== void 0) nextEntityMap.set(kv, next[i]);
   }
-  const seenPrevKeys = mayHaveRemovals ? /* @__PURE__ */ new Set() : null;
-  if (seenPrevKeys) {
-    for (let i = 0; i < startIdx; i++) {
-      const kv = getKeyValue(prev[i], keyField);
-      if (kv !== void 0) seenPrevKeys.add(kv);
-    }
+  const seenPrevKeys = /* @__PURE__ */ new Set();
+  for (let i = 0; i < startIdx; i++) {
+    const kv = getKeyValue(prev[i], keyField);
+    if (kv !== void 0) seenPrevKeys.add(kv);
   }
+  let addedAny = false;
+  let middleInsert = false;
+  let reorder = false;
+  let survivorCount = 0;
+  let sawUnkeyed = false;
+  let pi = startIdx;
   for (let i = startIdx; i < next.length; i++) {
     const nextItem = next[i];
     const kv = getKeyValue(nextItem, keyField);
     if (kv === void 0) {
+      sawUnkeyed = true;
       const childPath = parentPath ? parentPath + "." + i : String(i);
-      if (registry.hasPrefix(childPath)) {
-        const prevItem2 = i < prev.length ? prev[i] : void 0;
-        if (prevItem2 !== nextItem) {
+      const prevItem2 = i < prev.length ? prev[i] : void 0;
+      if (prevItem2 !== nextItem) {
+        if (registry.hasPrefix(childPath)) {
           diffAndUpdateSignals(prevItem2, nextItem, childPath, registry);
+        }
+        if (fired && cols) {
+          bumpColumnsForElement(
+            prevItem2,
+            nextItem,
+            parentPath,
+            registry,
+            cols,
+            fired
+          );
         }
       }
       continue;
     }
     nextEntityMap.set(kv, nextItem);
     const prevItem = prevEntityMap.get(kv);
+    const isSurvivor = prevItem !== void 0;
+    if (isSurvivor) {
+      survivorCount++;
+      if (addedAny) middleInsert = true;
+      if (structs && !reorder) {
+        while (pi < prev.length && getKeyValue(prev[pi], keyField) !== kv) {
+          pi++;
+        }
+        if (pi >= prev.length) {
+          reorder = true;
+        } else {
+          pi++;
+        }
+      }
+    } else {
+      addedAny = true;
+    }
     if (prevItem === nextItem) {
-      if (seenPrevKeys) seenPrevKeys.add(kv);
+      seenPrevKeys.add(kv);
       continue;
     }
-    if (seenPrevKeys) seenPrevKeys.add(kv);
+    seenPrevKeys.add(kv);
     const identityPath = buildIdentityPath(parentPath, keyField, kv);
-    if (prevItem !== void 0) {
+    if (isSurvivor) {
       if (registry.hasPrefix(identityPath)) {
         diffAndUpdateSignals(prevItem, nextItem, identityPath, registry);
+      }
+      if (fired && cols) {
+        bumpColumnsForElement(
+          prevItem,
+          nextItem,
+          parentPath,
+          registry,
+          cols,
+          fired
+        );
       }
     } else {
       if (registry.hasPrefix(identityPath)) {
@@ -1219,23 +1382,56 @@ function diffArrayByKey(prev, next, parentPath, registry, meta) {
       }
     }
   }
-  if (seenPrevKeys) {
-    for (const [kv] of prevEntityMap) {
-      if (!seenPrevKeys.has(kv)) {
-        const identityPath = buildIdentityPath(parentPath, keyField, kv);
-        registry.prune(identityPath);
-      }
+  for (const [kv] of prevEntityMap) {
+    if (!seenPrevKeys.has(kv)) {
+      const identityPath = buildIdentityPath(parentPath, keyField, kv);
+      registry.prune(identityPath);
     }
   }
   meta.entityMap = nextEntityMap;
+  if (structs) {
+    const removedAny = prev.length - startIdx > survivorCount;
+    if (sawUnkeyed) {
+      registry.bumpStructure(parentPath, "append");
+      registry.bumpStructure(parentPath, "insertOrReorder");
+      registry.bumpStructure(parentPath, "remove");
+    } else {
+      if (addedAny) registry.bumpStructure(parentPath, "append");
+      if (middleInsert || reorder) {
+        registry.bumpStructure(parentPath, "insertOrReorder");
+      }
+      if (removedAny) registry.bumpStructure(parentPath, "remove");
+    }
+  }
 }
 function diffArrayByIndex(prev, next, parentPath, registry) {
+  const cols = registry.getTrackedColumns(parentPath);
+  const fired = cols && cols.size > 0 ? /* @__PURE__ */ new Set() : null;
+  if (prev.length !== next.length) {
+    const structs = registry.getTrackedStructures(parentPath);
+    if (structs) {
+      registry.bumpStructure(parentPath, "append");
+      registry.bumpStructure(parentPath, "insertOrReorder");
+      registry.bumpStructure(parentPath, "remove");
+    }
+    bumpAllColumns(parentPath, registry, cols);
+  }
   const minLen = Math.min(prev.length, next.length);
   for (let i = 0; i < minLen; i++) {
     if (prev[i] !== next[i]) {
       const childPath = parentPath ? parentPath + "." + i : String(i);
       if (registry.hasPrefix(childPath)) {
         diffAndUpdateSignals(prev[i], next[i], childPath, registry);
+      }
+      if (fired && cols && prev.length === next.length) {
+        bumpColumnsForElement(
+          prev[i],
+          next[i],
+          parentPath,
+          registry,
+          cols,
+          fired
+        );
       }
     }
   }
@@ -1278,7 +1474,7 @@ var alienEngine = {
     return { get: () => c() };
   },
   effect(fn) {
-    alienEffect(fn);
+    return alienEffect(fn);
   },
   batch(fn) {
     startBatch();
@@ -1378,8 +1574,35 @@ function useSignalContext() {
   return contextValue;
 }
 
+// src/signals/untrackQueue.ts
+var queue = null;
+function beginEvaluationQueue() {
+  queue = [];
+}
+function clearEvaluationQueue() {
+  queue = null;
+}
+function registerEscapeCandidate(container) {
+  queue?.push(container);
+}
+function drainEvaluationQueue() {
+  if (queue === null || queue.length === 0) return [];
+  const drained = queue;
+  queue = [];
+  return drained;
+}
+
 // src/signals/arrayMethodOverrides.ts
 var FIND_METHODS = /* @__PURE__ */ new Set(["find", "findLast"]);
+var CALLBACK_METHODS = /* @__PURE__ */ new Set([
+  "find",
+  "findLast",
+  "filter",
+  "findIndex",
+  "findLastIndex",
+  "some",
+  "every"
+]);
 var OVERRIDDEN_METHODS = /* @__PURE__ */ new Set([
   // Subset — return proxied results
   "find",
@@ -1410,31 +1633,154 @@ function normalizeSliceIndex(index, length) {
   }
   return Math.min(index, length);
 }
-function createArrayMethodInterceptor(target, proxy, method) {
+function createScanRecorder() {
+  const holder = { current: void 0 };
+  const recorder = {
+    proxy: null,
+    holder,
+    recorded: /* @__PURE__ */ new Set(),
+    fallback: false
+  };
+  recorder.proxy = new Proxy({}, {
+    get(_obj, prop) {
+      const current = holder.current;
+      if (typeof prop === "symbol") return current[prop];
+      recorder.recorded.add(prop);
+      const value = current[prop];
+      if (value !== null && typeof value === "object") {
+        recorder.fallback = true;
+      }
+      return value;
+    },
+    has(_obj, prop) {
+      if (typeof prop === "string") recorder.recorded.add(prop);
+      return Reflect.has(holder.current, prop);
+    },
+    ownKeys() {
+      recorder.fallback = true;
+      return Reflect.ownKeys(holder.current);
+    },
+    getOwnPropertyDescriptor(_obj, prop) {
+      recorder.fallback = true;
+      const desc = Object.getOwnPropertyDescriptor(
+        holder.current,
+        prop
+      );
+      return desc ? { ...desc, configurable: true } : desc;
+    },
+    getPrototypeOf() {
+      return Object.getPrototypeOf(holder.current);
+    },
+    set() {
+      return false;
+    },
+    deleteProperty() {
+      return false;
+    }
+  });
+  registerRecordingHolder(recorder.proxy, holder);
+  return recorder;
+}
+function presentElement(recorder, value) {
+  if (value !== null && typeof value === "object") {
+    recorder.holder.current = value;
+    return recorder.proxy;
+  }
+  recorder.fallback = true;
+  return value;
+}
+var STRUCTURE_DEPS = {
+  find: {
+    matched: ["insertOrReorder"],
+    missed: ["append", "insertOrReorder"]
+  },
+  findLast: {
+    matched: ["append", "insertOrReorder"],
+    missed: ["append", "insertOrReorder"]
+  },
+  findIndex: {
+    matched: ["insertOrReorder", "remove"],
+    missed: ["append", "insertOrReorder"]
+  },
+  findLastIndex: {
+    matched: ["append", "insertOrReorder", "remove"],
+    missed: ["append", "insertOrReorder"]
+  },
+  filter: {
+    matched: ["append", "insertOrReorder", "remove"],
+    missed: ["append", "insertOrReorder", "remove"]
+  },
+  some: {
+    matched: ["remove"],
+    missed: ["append", "insertOrReorder"]
+  },
+  every: {
+    // For every, "matched" = returned true (no counterexample found)
+    matched: ["append", "insertOrReorder"],
+    // "missed" = returned false (counterexample exists)
+    missed: ["remove"]
+  }
+};
+function finalizeScanDeps(recorder, registry, parentPath, target, method, matched) {
+  if (recorder.fallback || recorder.recorded.size === 0) {
+    registry.getOrCreate(parentPath, target).get();
+    return;
+  }
+  for (const prop of recorder.recorded) {
+    registry.trackColumn(parentPath, prop).get();
+  }
+  const kinds = STRUCTURE_DEPS[method];
+  if (kinds) {
+    const wanted = matched ? kinds.matched : kinds.missed;
+    for (const kind of wanted) {
+      registry.trackStructure(parentPath, kind).get();
+    }
+  }
+}
+function createArrayMethodInterceptor(target, proxy, method, registry, parentPath) {
   return function intercepted(...args) {
     const m = method;
-    if (m === "filter") {
-      const predicate = args[0];
-      const result = [];
-      for (let i = 0; i < target.length; i++) {
-        if (predicate(target[i], i, target)) {
-          result.push(proxy[i]);
+    if (CALLBACK_METHODS.has(m)) {
+      const callback = args[0];
+      const recorder = createScanRecorder();
+      let result;
+      let matched;
+      if (m === "filter") {
+        const matches = [];
+        for (let i = 0; i < target.length; i++) {
+          if (callback(presentElement(recorder, target[i]), i, target)) {
+            matches.push(proxy[i]);
+          }
+        }
+        result = matches;
+        matched = matches.length > 0;
+        registerEscapeCandidate(matches);
+      } else if (FIND_METHODS.has(m)) {
+        const isForward = m === "find";
+        const step = isForward ? 1 : -1;
+        const start = isForward ? 0 : target.length - 1;
+        result = void 0;
+        for (let i = start; i >= 0 && i < target.length; i += step) {
+          if (callback(presentElement(recorder, target[i]), i, target)) {
+            result = proxy[i];
+            break;
+          }
+        }
+        matched = result !== void 0;
+      } else {
+        result = target[m](
+          (value, i, arr) => callback(presentElement(recorder, value), i, arr)
+        );
+        if (m === "findIndex" || m === "findLastIndex") {
+          matched = result !== -1;
+        } else {
+          matched = result === true;
         }
       }
+      finalizeScanDeps(recorder, registry, parentPath, target, m, matched);
       return result;
     }
-    if (FIND_METHODS.has(m)) {
-      const predicate = args[0];
-      const isForward = m === "find";
-      const step = isForward ? 1 : -1;
-      const start = isForward ? 0 : target.length - 1;
-      for (let i = start; i >= 0 && i < target.length; i += step) {
-        if (predicate(target[i], i, target)) {
-          return proxy[i];
-        }
-      }
-      return void 0;
-    }
+    registry.getOrCreate(parentPath, target).get();
     if (m === "slice") {
       const rawStart = args[0] ?? 0;
       const rawEnd = args[1] ?? target.length;
@@ -1444,7 +1790,14 @@ function createArrayMethodInterceptor(target, proxy, method) {
       for (let i = start; i < end; i++) {
         result.push(proxy[i]);
       }
+      registerEscapeCandidate(result);
       return result;
+    }
+    if (m === "includes" || m === "indexOf" || m === "lastIndexOf") {
+      const unwrappedArgs = args.map(
+        (arg, i) => i === 0 ? unwrap(arg) : arg
+      );
+      return target[m](...unwrappedArgs);
     }
     return target[m](...args);
   };
@@ -1454,28 +1807,77 @@ function createArrayMethodInterceptor(target, proxy, method) {
 function isObjectOrArray2(v) {
   return v !== null && typeof v === "object";
 }
+function isPlainObject3(v) {
+  const proto = Object.getPrototypeOf(v);
+  return proto === Object.prototype || proto === null;
+}
+function isIndexProp(prop) {
+  const c = prop.charCodeAt(0);
+  return c >= 48 && c <= 57;
+}
 var proxyPathMap = /* @__PURE__ */ new WeakMap();
+var proxyTargetMap = /* @__PURE__ */ new WeakMap();
+var recordingHolders = /* @__PURE__ */ new WeakMap();
+function registerRecordingHolder(proxy, holder) {
+  recordingHolders.set(proxy, holder);
+}
 function getProxyPath(value) {
   if (value !== null && typeof value === "object") {
     return proxyPathMap.get(value);
   }
   return void 0;
 }
-function createTrackingProxy(target, parentPath, registry, cache) {
+function getProxyTarget(value) {
+  return proxyTargetMap.get(value);
+}
+function unwrap(value) {
+  if (value !== null && typeof value === "object") {
+    const target = proxyTargetMap.get(value);
+    if (target !== void 0) return target;
+    const holder = recordingHolders.get(value);
+    if (holder !== void 0) return holder.current;
+  }
+  return value;
+}
+function createTrackingProxy(target, parentPath, registry, cache, leafTracker) {
+  if (leafTracker !== void 0) {
+    registry.leafTrackerHolder.current = leafTracker;
+  }
   const cached = cache.get(target);
   if (cached) return cached;
   const shell = Array.isArray(target) ? [] : Object.create(Object.getPrototypeOf(target));
+  const pathKeyCache = /* @__PURE__ */ new Map();
+  function getPathKey(prop) {
+    let key = pathKeyCache.get(prop);
+    if (key === void 0) {
+      const segment = encodePathSegment(prop);
+      key = parentPath ? parentPath + "." + segment : segment;
+      pathKeyCache.set(prop, key);
+    }
+    return key;
+  }
   const proxy = new Proxy(shell, {
     get(_obj, prop, _receiver) {
       if (typeof prop === "symbol") return Reflect.get(target, prop);
       const value = target[prop];
+      const leafTracker2 = registry.leafTrackerHolder.current;
       if (typeof value === "function") {
         if (Array.isArray(target) && isOverriddenArrayMethod(prop)) {
-          return createArrayMethodInterceptor(target, proxy, prop);
+          if (leafTracker2) {
+            leafTracker2.traversedPaths.add(parentPath);
+          }
+          return createArrayMethodInterceptor(target, proxy, prop, registry, parentPath);
         }
         return value;
       }
-      let pathKey = parentPath ? parentPath + "." + prop : prop;
+      if (Array.isArray(target) && parentPath !== "" && isIndexProp(prop) && !isObjectOrArray2(value)) {
+        if (leafTracker2) {
+          leafTracker2.traversedPaths.add(parentPath);
+        }
+        registry.getOrCreate(parentPath, target).get();
+        return value;
+      }
+      let pathKey = getPathKey(prop);
       if (isObjectOrArray2(value)) {
         if (Array.isArray(target) && !Array.isArray(value) && !isNaN(Number(prop))) {
           let meta = registry.getArrayMeta(parentPath);
@@ -1493,19 +1895,37 @@ function createTrackingProxy(target, parentPath, registry, cache) {
             }
           }
         }
+        if (!Array.isArray(value) && !isPlainObject3(value)) {
+          if (leafTracker2) {
+            leafTracker2.traversedPaths.add(parentPath);
+          }
+          registry.getOrCreate(pathKey, value).get();
+          return value;
+        }
         registry.ensurePrefix(pathKey);
+        if (leafTracker2) {
+          leafTracker2.traversedPaths.add(parentPath);
+        }
         const childProxy = createTrackingProxy(
           value,
           pathKey,
           registry,
           cache
         );
+        if (leafTracker2) {
+          leafTracker2.accessedObjects.set(pathKey, value);
+        }
         return childProxy;
+      }
+      if (leafTracker2) {
+        leafTracker2.traversedPaths.add(parentPath);
       }
       registry.getOrCreate(pathKey, value).get();
       return value;
     },
     // Track when selectors iterate keys (Object.keys, for...in, .map, .filter, etc.)
+    // Built raw (NOT via getPathKey): '@@keys' is a meta segment, and
+    // getPathKey would %-escape its '@'s like a state key's.
     ownKeys(_obj) {
       const keysPath = parentPath ? parentPath + ".@@keys" : "@@keys";
       registry.getOrCreate(keysPath, Reflect.ownKeys(target)).get();
@@ -1514,7 +1934,7 @@ function createTrackingProxy(target, parentPath, registry, cache) {
     // Track has() checks for conditional property access (e.g., 'key' in obj)
     has(_obj, prop) {
       if (typeof prop === "symbol") return Reflect.has(target, prop);
-      const pathKey = parentPath ? parentPath + "." + prop : prop;
+      const pathKey = getPathKey(prop);
       registry.getOrCreate(pathKey, target[prop]).get();
       return Reflect.has(target, prop);
     },
@@ -1544,7 +1964,73 @@ function createTrackingProxy(target, parentPath, registry, cache) {
   });
   cache.set(target, proxy);
   proxyPathMap.set(proxy, parentPath);
+  proxyTargetMap.set(proxy, target);
   return proxy;
+}
+
+// src/signals/untrack.ts
+var strategy = "recursive";
+function beginUntrackEvaluation() {
+  if (strategy === "registry") beginEvaluationQueue();
+  else clearEvaluationQueue();
+}
+function untrackResult(result) {
+  if (strategy === "none") return result;
+  if (strategy === "registry") {
+    const containers = drainEvaluationQueue();
+    if (containers.length === 0) return untrackRecursive(result, null);
+    const seen = /* @__PURE__ */ new WeakSet();
+    for (const container of containers) {
+      untrackRecursive(container, seen);
+    }
+    return untrackRecursive(result, seen);
+  }
+  return untrackRecursive(result, null);
+}
+function untrackRecursive(value, seen) {
+  if (value === null || typeof value !== "object") return value;
+  const target = getProxyTarget(value);
+  if (target !== void 0) return target;
+  if (Object.isFrozen(value)) return value;
+  if (seen === null) seen = /* @__PURE__ */ new WeakSet();
+  else if (seen.has(value)) return value;
+  seen.add(value);
+  if (Array.isArray(value)) {
+    for (let i = 0; i < value.length; i++) {
+      const v = value[i];
+      const u = untrackRecursive(v, seen);
+      if (u !== v) value[i] = u;
+    }
+    return value;
+  }
+  if (value instanceof Map) {
+    for (const [k, v] of value) {
+      const u = untrackRecursive(v, seen);
+      if (u !== v) value.set(k, u);
+    }
+    return value;
+  }
+  if (value instanceof Set) {
+    let replacements = null;
+    for (const v of value) {
+      const u = untrackRecursive(v, seen);
+      if (u !== v) (replacements ??= []).push([v, u]);
+    }
+    if (replacements) {
+      for (const [v, u] of replacements) {
+        value.delete(v);
+        value.add(u);
+      }
+    }
+    return value;
+  }
+  const record = value;
+  for (const k of Object.keys(record)) {
+    const v = record[k];
+    const u = untrackRecursive(v, seen);
+    if (u !== v) record[k] = u;
+  }
+  return value;
 }
 
 // src/signals/useSignalSelector.ts
@@ -1553,61 +2039,98 @@ function useSignalSelector(selector, equalityFn = Object.is) {
   const { store, registry, engine } = useSignalContext();
   const selectorRef = useRef(selector);
   const equalityFnRef = useRef(equalityFn);
-  useIsomorphicLayoutEffect(() => {
-    selectorRef.current = selector;
-    equalityFnRef.current = equalityFn;
-  });
+  equalityFnRef.current = equalityFn;
   const bridge = useMemo(() => {
     let currentResult;
     let version = 0;
     let notifyReact = null;
-    let effectDispose = null;
+    let suppressNotify = false;
+    const leafTracker = {
+      accessedObjects: /* @__PURE__ */ new Map(),
+      traversedPaths: /* @__PURE__ */ new Set()
+    };
+    const selectorVersionSignal = engine.signal(0);
+    const setSelector = (nextSelector) => {
+      selectorRef.current = nextSelector;
+      suppressNotify = true;
+      try {
+        selectorVersionSignal.set(selectorVersionSignal.get() + 1);
+        currentResult = selectorComputed.get();
+      } finally {
+        suppressNotify = false;
+      }
+    };
     const selectorComputed = engine.computed(() => {
+      selectorVersionSignal.get();
       const state = store.getState();
-      const proxy = createTrackingProxy(state, "", registry, registry.proxyCache);
+      leafTracker.accessedObjects.clear();
+      leafTracker.traversedPaths.clear();
+      beginUntrackEvaluation();
+      const proxy = createTrackingProxy(
+        state,
+        "",
+        registry,
+        registry.proxyCache,
+        leafTracker
+      );
       const result = selectorRef.current(proxy);
       const proxyPath = getProxyPath(result);
       if (proxyPath !== void 0) {
         registry.getOrCreate(proxyPath, result).get();
       }
-      return result;
+      for (const [objPath, rawValue] of leafTracker.accessedObjects) {
+        if (!leafTracker.traversedPaths.has(objPath)) {
+          if (objPath !== "") {
+            registry.getOrCreate(objPath, rawValue).get();
+          }
+        }
+      }
+      return untrackResult(result);
     });
     currentResult = selectorComputed.get();
     return {
       subscribe(onStoreChange) {
         notifyReact = onStoreChange;
-        const scope = engine.createScope();
-        effectDispose = scope.run(() => {
-          let isFirst = true;
-          return engine.effect(() => {
-            const newValue = selectorComputed.get();
-            if (isFirst) {
-              isFirst = false;
-              return;
-            }
-            if (!equalityFnRef.current(currentResult, newValue)) {
-              currentResult = newValue;
-              version++;
-              notifyReact?.();
-            }
-          });
+        let isFirst = true;
+        const dispose = engine.effect(() => {
+          const newValue = selectorComputed.get();
+          if (isFirst) {
+            isFirst = false;
+            return;
+          }
+          if (suppressNotify) {
+            currentResult = newValue;
+            return;
+          }
+          if (!equalityFnRef.current(currentResult, newValue)) {
+            currentResult = newValue;
+            version++;
+            notifyReact?.();
+          }
         });
         return () => {
           notifyReact = null;
-          effectDispose?.();
-          effectDispose = null;
+          dispose();
         };
       },
       getSnapshot() {
         return currentResult;
-      }
+      },
+      setSelector
     };
   }, [store, registry, engine]);
+  if (selectorRef.current !== selector) {
+    bridge.setSelector(selector);
+  }
   useEffect(() => {
     return () => {
     };
   }, [bridge]);
-  return useSyncExternalStore(bridge.subscribe, bridge.getSnapshot);
+  return useSyncExternalStore(
+    bridge.subscribe,
+    bridge.getSnapshot,
+    bridge.getSnapshot
+  );
 }
 
 // src/hooks/useReduxContext.ts
@@ -1753,12 +2276,13 @@ function createSelectorHook(context = ReactReduxContext) {
 }
 
 // src/exports.ts
-var useSelector = useSignalSelector;
-var Provider = SignalProvider;
 var batch = defaultNoopBatch;
+var Provider = SignalProvider;
+var useSelector = useSignalSelector;
 export {
   Provider,
   ReactReduxContext,
+  SignalProvider,
   batch,
   connect,
   createDispatchHook,
@@ -1766,8 +2290,10 @@ export {
   createStoreHook,
   legacy_connect,
   shallowEqual,
+  unwrap,
   useDispatch,
   useSelector,
+  useSignalSelector,
   useStore
 };
 //# sourceMappingURL=react-redux.mjs.map
