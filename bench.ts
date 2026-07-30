@@ -429,6 +429,79 @@ async function compareResults(files: string[]) {
   }
 }
 
+function reportResults(args: string[]) {
+  let file = "";
+  let base = "9.2.0";
+  let target = SIGNALS_VERSION;
+
+  for (let i = 0; i < args.length; i++) {
+    switch (args[i]) {
+      case "--base":
+        base = args[++i];
+        break;
+      case "--target":
+        target = args[++i];
+        break;
+      default:
+        if (!file) file = args[i];
+        break;
+    }
+  }
+
+  if (!file) {
+    console.error("Error: need a result file: bun bench.ts report bench-results/run.json");
+    process.exit(1);
+  }
+
+  const p = path.resolve(file);
+  if (!fs.existsSync(p)) {
+    console.error(`Error: file not found: ${p}`);
+    process.exit(1);
+  }
+  const data: ResultFile = JSON.parse(fs.readFileSync(p, "utf-8"));
+  const m = data.meta;
+
+  function pct(a: number, b: number): string {
+    if (a === 0) return "n/a";
+    const d = ((b - a) / a) * 100;
+    return `${d >= 0 ? "+" : ""}${d.toFixed(1)}%`;
+  }
+
+  // "391 → 315 (−19.4%)" style cell; "-" when either side is missing
+  function cell(a: number | null | undefined, b: number | null | undefined, decimals: number): string {
+    if (a == null || b == null) return "-";
+    return `${fmt(a, decimals)} → ${fmt(b, decimals)} (${pct(a, b)})`;
+  }
+
+  const scenarios = Object.keys(data.results).sort();
+
+  console.log(`### Benchmark results: \`${m.label}\``);
+  console.log("");
+  console.log(`- Commit: \`${m.git.shortSha}\`${m.git.dirty ? " (dirty)" : ""} on \`${m.git.branch}\` — ${m.git.message}`);
+  console.log(`- Run: ${m.timestamp.slice(0, 19).replace("T", " ")} UTC, ${m.benchmarkArgs.length}s per scenario`);
+  console.log(`- Comparing: \`${base}\` (base) → \`${target}\``);
+  console.log("");
+  console.log("| Scenario | Script (ms) | Dispatch avg (ms) | Avg update (ms) | Renders |");
+  console.log("| --- | --- | --- | --- | --- |");
+
+  for (const scenario of scenarios) {
+    const baseStats = data.results[scenario]?.[base];
+    const targetStats = data.results[scenario]?.[target];
+    if (!baseStats && !targetStats) continue;
+
+    const cols = [
+      cell(baseStats?.cdp.scriptDuration, targetStats?.cdp.scriptDuration, 0),
+      cell(baseStats?.dispatch.avgTime, targetStats?.dispatch.avgTime, 2),
+      cell(baseStats?.react.avgUpdateTime, targetStats?.react.avgUpdateTime, 2),
+      cell(baseStats?.react.renderCount, targetStats?.react.renderCount, 0),
+    ];
+    console.log(`| ${scenario} | ${cols.join(" | ")} |`);
+  }
+
+  console.log("");
+  console.log("_Negative deltas = better (less time / fewer renders). Render counts can rise when the base build drops frames under load._");
+}
+
 function listResults() {
   ensureResultsDir();
 
@@ -486,6 +559,9 @@ switch (command) {
   case "compare":
     await compareResults(rest);
     break;
+  case "report":
+    reportResults(rest);
+    break;
   case "list":
     listResults();
     break;
@@ -495,7 +571,8 @@ Usage: bun bench.ts <command> [options]
 
 Commands:
   run      Build & run benchmarks, save results as JSON
-  compare  Compare 2+ result files
+  compare  Compare 2+ result files (signals build across runs)
+  report   Markdown report for one run: stock vs signals per scenario
   list     List saved results
 
 Run options:
@@ -508,6 +585,12 @@ Run options:
 
 Compare:
   bun bench.ts compare bench-results/baseline.json bench-results/experiment.json
+
+Report options:
+  --base <version>    Baseline version key (default: 9.2.0)
+  --target <version>  Comparison version key (default: ${SIGNALS_VERSION})
+
+  bun bench.ts report bench-results/untrack-signals.json
 
 Examples:
   bun bench.ts run --rr-dir ../markerikson-react-redux
