@@ -74,5 +74,8 @@ runs/
 dist*/
 build/
 profiles/
+bisect-results/
+
+pprof*.pb.gz
 
 !.yalc/react-redux/dist/

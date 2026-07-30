@@ -38,18 +38,19 @@ export function transformSignalProvider(code: string): string {
   });
 
   if (!reconcileCall) {
-    console.warn(
-      "[instrument] Could not find reconcileState(prev, next, registry, engine) call"
+    throw new Error(
+      "[instrument] transformSignalProvider FAILED: Could not find reconcileState(prev, next, registry, engine) call. " +
+      "The react-redux bundle patterns may have changed. Update the ast-grep pattern in reactReduxSignalTransform.ts."
     );
-    return code;
   }
 
   // Navigate to the expression_statement parent so we wrap the full statement
   // including its semicolon, not just the call expression.
   const reconcileStmt = reconcileCall.parent();
   if (!reconcileStmt) {
-    console.warn("[instrument] Could not find parent statement of reconcileState call");
-    return code;
+    throw new Error(
+      "[instrument] transformSignalProvider FAILED: reconcileState call has no parent statement node."
+    );
   }
 
   const range = reconcileStmt.range();
@@ -123,29 +124,39 @@ export function transformSignalSelector(code: string): string {
   }
 
   if (!firstStmt) {
-    console.warn(
-      "[instrument] Could not find first statement inside engine.computed() callback"
+    throw new Error(
+      "[instrument] transformSignalSelector FAILED: Could not find first statement inside engine.computed() callback. " +
+      "Expected `const state = store.getState()` or `const proxy = createTrackingProxy(...)`. " +
+      "The react-redux bundle patterns may have changed. Update the ast-grep pattern in reactReduxSignalTransform.ts."
     );
-    return code;
   }
 
-  // Find `return result` inside the same computed
-  const returnStmt = root.find({
+  // Find the final return inside the same computed.
+  // Newer builds untrack the result at the boundary: `return untrackResult(result)`.
+  // Older builds return it directly: `return result`.
+  const untrackReturnStmt = root.find({
     rule: {
-      pattern: "return result",
+      pattern: "return untrackResult(result)",
       inside: insideComputed,
     },
   });
+  const plainReturnStmt = untrackReturnStmt
+    ? null
+    : root.find({
+        rule: {
+          pattern: "return result",
+          inside: insideComputed,
+        },
+      });
 
-  if (!returnStmt) {
-    console.warn(
-      "[instrument] Could not find `return result` inside engine.computed()"
+  if (!untrackReturnStmt && !plainReturnStmt) {
+    throw new Error(
+      "[instrument] transformSignalSelector FAILED: Could not find `return untrackResult(result)` or `return result` inside engine.computed(). " +
+      "The react-redux bundle patterns may have changed. Update the ast-grep pattern in reactReduxSignalTransform.ts."
     );
-    return code;
   }
 
   const firstRange = firstStmt.range();
-  const returnRange = returnStmt.range();
 
   const splices: Splice[] = [
     // Insert timer start before first statement
@@ -154,13 +165,26 @@ export function transformSignalSelector(code: string): string {
       deleteCount: 0,
       insert: `const __tss0 = performance.now(); `,
     },
-    // Insert timing accumulation before `return result`
-    {
-      offset: returnRange.start.index,
-      deleteCount: 0,
-      insert: `globalThis.__benchInst.signalSelectorTime += performance.now() - __tss0; globalThis.__benchInst.signalSelectorCount++; `,
-    },
   ];
+
+  const accum = `globalThis.__benchInst.signalSelectorTime += performance.now() - __tss0; globalThis.__benchInst.signalSelectorCount++;`;
+
+  if (untrackReturnStmt) {
+    // Hoist the untrack call so its cost lands inside the measured window.
+    const range = untrackReturnStmt.range();
+    splices.push({
+      offset: range.start.index,
+      deleteCount: range.end.index - range.start.index,
+      insert: `const __untracked = untrackResult(result); ${accum} return __untracked`,
+    });
+  } else {
+    const range = plainReturnStmt!.range();
+    splices.push({
+      offset: range.start.index,
+      deleteCount: 0,
+      insert: `${accum} `,
+    });
+  }
 
   console.log(
     "[instrument] Wrapped engine.computed() selector callback with signalSelectorTime timing"

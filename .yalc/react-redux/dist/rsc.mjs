@@ -32,6 +32,7 @@ var ReactReduxContext = {};
 export {
   throwNotSupportedError as Provider,
   ReactReduxContext,
+  throwNotSupportedError as SignalProvider,
   throwNotSupportedError as batch,
   throwNotSupportedError as connect,
   throwNotSupportedError as createDispatchHook,
@@ -39,8 +40,10 @@ export {
   throwNotSupportedError as createStoreHook,
   throwNotSupportedError as legacy_connect,
   shallowEqual,
+  throwNotSupportedError as unwrap,
   throwNotSupportedError as useDispatch,
   throwNotSupportedError as useSelector,
+  throwNotSupportedError as useSignalSelector,
   throwNotSupportedError as useStore
 };
 //# sourceMappingURL=rsc.mjs.map

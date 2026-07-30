@@ -1,64 +1,86 @@
 # react-redux-benchmarks
 
-Performance benchmark harness for React-Redux
+Performance benchmark harness for React-Redux.
 
-This repo expects that you are using Yarn for package management.
+## Quick Start (bench.ts)
 
-# Running benchmarks
+`bench.ts` automates the full build → publish → benchmark → compare cycle. Requires [Bun](https://bun.sh).
 
-```bash
-yarn build
-yarn start
-```
-
-After benchmarks have been built, you can run with simply:
+### Run benchmarks against a local react-redux build
 
 ```bash
-yarn start
+# Build current working tree, run all scenarios (10s each), save results
+bun bench.ts run --rr-dir ../markerikson-react-redux
+
+# Shorter run with specific scenarios
+bun bench.ts run --rr-dir ../markerikson-react-redux --label my-fix -l 5 -s entity-list,forms
+
+# Run against a specific commit (auto-restores git state after)
+bun bench.ts run --rr-dir ../markerikson-react-redux --sha 471666e --exports bisect-results/exports-471666e.ts
 ```
 
-You'll need to rebuild the benchmarks after every code change.
-
-## Running specific versions of react-redux
-
-To specify a single version:
+### Compare results
 
 ```bash
-yarn start --versions 8.1.1
-yarn start -v 8.1.1
+bun bench.ts compare bench-results/baseline.json bench-results/my-fix.json
 ```
 
-To specify running against multiple versions:
+Outputs a side-by-side table with Script time, SigSel time, Sig#, Reconcile time, and deltas (ratio with ↑/↓ indicators).
+
+### List saved results
 
 ```bash
-yarn start -v 8.1.1 7.2.5
+bun bench.ts list
 ```
 
-## To run a specific benchmark:
+### Run options
+
+| Flag | Description |
+|------|-------------|
+| `--rr-dir <path>` | Path to react-redux repo (required) |
+| `--label <name>` | Label for this run (auto-generated from git SHA + branch if omitted) |
+| `--sha <commit>` | Checkout this commit before building |
+| `--exports <file>` | Copy this file as `src/exports.ts` before building |
+| `-l, --length <sec>` | Seconds per benchmark (default: 10) |
+| `-s, --scenarios <list>` | Comma-separated scenario names |
+
+Results are saved as JSON to `bench-results/<label>.json` with git metadata (SHA, branch, dirty state, commit message).
+
+## Manual Usage
+
+### Building
 
 ```bash
-yarn start --scenarios deeptree
-yarn start -s deeptree
+pnpm build              # standard build
+pnpm build --instrument # with dispatch-cycle instrumentation
 ```
 
-or specific benchmarks:
+### Running
 
 ```bash
-yarn start -s deeptree forms
+pnpm start                         # all scenarios, 30s each
+pnpm start -l 5                    # 5s per scenario
+pnpm start -s deeptree forms       # specific scenarios
+pnpm start -v 8.1.1                # specific react-redux version
+pnpm start --json                  # JSON output
+pnpm start --profile               # V8 CPU profiling with module attribution
+pnpm start --instrument             # collect instrumentation stats (requires instrumented build)
+pnpm start --save-profiles          # save .cpuprofile files to ./profiles/
 ```
 
-## Setting run length
-
-By default, benchmarks run for 30 seconds. To change this, use
+### Installing a local react-redux build
 
 ```bash
-yarn start --length 5
-yarn start -l 5
+# In the react-redux repo:
+yarn build && yalc publish
+
+# In this repo:
+yalc add react-redux && pnpm install
 ```
 
-# Adding a benchmark
+## Adding a benchmark
 
-Benchmarks live in the `src/scenarios` directory. Each benchmark must render a React component like this:
+Benchmarks live in `src/scenarios/`. Each benchmark must render a React component:
 
 ```js
 import { renderApp } from '../../common'
@@ -66,8 +88,4 @@ import { renderApp } from '../../common'
 renderApp(<App />, store)
 ```
 
-Where `App` is your benchmark component, and `store` is your redux store.
-
-If you need to make changes to the `fps-emit` package, bump the version number in its `package.json`,
-then update each benchmark to use the newest version using `yarn upgrade-interactive` and selecting `fps-emit`
-for an update. Then rebuild all the benchmarks using `yarn build`
+Where `App` is your benchmark component and `store` is your Redux store.
