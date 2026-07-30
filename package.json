@@ -5,6 +5,7 @@
   "main": "index.js",
   "scripts": {
     "start": "tsx ./runBenchmarks.ts",
+    "tti": "tsx ./ttiBench.ts",
     "format": "prettier --write \"sources/**/src/*.{js,jsx,ts,tsx}\" *.js",
     "build": "tsx scripts/build.ts",
     "build:node": "tsx scripts/build-node.ts",
