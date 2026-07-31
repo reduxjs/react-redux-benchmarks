@@ -328,7 +328,15 @@ function printBenchmarkResults(
 
   // React table
   const reactTable: any = new Table({
-    head: ['Version', 'Mount', 'Avg Upd', 'p95 Upd', 'Renders', 'Dispatches (avg)'],
+    head: [
+      'Version',
+      'Mount',
+      'Avg Upd',
+      'p95 Upd',
+      'Renders',
+      'Dispatches (avg)',
+      'Blocked',
+    ],
     style: { head: ['red'] },
     colAligns,
   })
@@ -341,9 +349,18 @@ function printBenchmarkResults(
       s.react.p95UpdateTime?.toFixed(1) ?? 'N/A',
       s.react.renderCount,
       `${s.dispatch.count} (${s.dispatch.avgTime.toFixed(2)})`,
+      s.dispatch.totalTime.toFixed(0),
     ])
   }
   console.log(reactTable.toString())
+  console.log(
+    chalk.gray(
+      '  Blocked = total ms spent inside dispatch() — main thread unavailable.\n' +
+        '  It measures WHERE work runs, not how much: deferring the subscriber\n' +
+        '  notification collapses it without removing work. Read it next to\n' +
+        '  Script/Task, which do show total cost.',
+    ),
+  )
 
   // Profile table (only when --profile)
   if (showProfile) {
