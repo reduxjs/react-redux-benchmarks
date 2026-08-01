@@ -20,37 +20,50 @@ function applySplices(code: string, splices: Splice[]): string {
 /**
  * Instrument the reconcileState() call in SignalProvider's onStateChange.
  *
- * Target pattern in the bundle:
+ * Target patterns in the bundle (newest first):
  * ```js
+ * const changedRootKeys = reconcileState(prev, next, registry, engine);
  * reconcileState(prev, next, registry, engine);
  * ```
  *
- * Wraps with reconcileTime/reconcileCount timing.
+ * Wraps the whole statement with reconcileTime/reconcileCount timing,
+ * preserving the declaration (and its return value) when present.
  */
 export function transformSignalProvider(code: string): string {
   const root = parse(Lang.JavaScript, code).root();
 
-  // Find the reconcileState call expression statement
-  const reconcileCall = root.find({
+  // Newer builds capture the return value (changed root keys for the
+  // coarse tier). Match the full declaration so we wrap around it instead
+  // of splicing into the middle of `const ... = ...`.
+  let reconcileStmt = root.find({
     rule: {
-      pattern: "reconcileState(prev, next, registry, engine)",
+      pattern:
+        "const changedRootKeys = reconcileState(prev, next, registry, engine)",
     },
   });
 
-  if (!reconcileCall) {
-    throw new Error(
-      "[instrument] transformSignalProvider FAILED: Could not find reconcileState(prev, next, registry, engine) call. " +
-      "The react-redux bundle patterns may have changed. Update the ast-grep pattern in reactReduxSignalTransform.ts."
-    );
-  }
-
-  // Navigate to the expression_statement parent so we wrap the full statement
-  // including its semicolon, not just the call expression.
-  const reconcileStmt = reconcileCall.parent();
   if (!reconcileStmt) {
-    throw new Error(
-      "[instrument] transformSignalProvider FAILED: reconcileState call has no parent statement node."
-    );
+    // Older builds: bare call statement. Match the call, then wrap its
+    // parent expression_statement.
+    const reconcileCall = root.find({
+      rule: {
+        pattern: "reconcileState(prev, next, registry, engine)",
+      },
+    });
+
+    if (!reconcileCall) {
+      throw new Error(
+        "[instrument] transformSignalProvider FAILED: Could not find reconcileState(prev, next, registry, engine) call (bare or `const changedRootKeys = ...` form). " +
+        "The react-redux bundle patterns may have changed. Update the ast-grep pattern in reactReduxSignalTransform.ts."
+      );
+    }
+
+    reconcileStmt = reconcileCall.parent();
+    if (!reconcileStmt) {
+      throw new Error(
+        "[instrument] transformSignalProvider FAILED: reconcileState call has no parent statement node."
+      );
+    }
   }
 
   const range = reconcileStmt.range();
