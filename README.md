@@ -78,6 +78,24 @@ yarn build && yalc publish
 yalc add react-redux && pnpm install
 ```
 
+## Reading the results
+
+### `Blocked` — total time inside `dispatch()`
+
+`Blocked` is the sum of every `dispatch()` call's duration over the run, measured by `dispatchTimingMiddleware` (`src/common/dispatch-timing.ts`) around `next(action)`. It is the time the main thread spent unable to paint or handle input because a dispatch was in progress — the quantity [INP](https://web.dev/articles/inp) penalizes.
+
+**It measures where work runs, not how much there is.** react-redux notifies every subscriber synchronously inside `dispatch`, so on `master` this number tracks the real cost. But any change that moves the notification pass out of the synchronous window — deferring it to a macrotask, time-slicing it — makes `Blocked` collapse toward zero *without removing a single unit of work*.
+
+A drop from `8704 ms` to `4 ms` is therefore not a 2000× speedup, and reporting it as one will not survive review. Always read `Blocked` alongside `Script` and `Task` from the CDP table, which do account for total work:
+
+| what changed | `Blocked` | `Script` / `Task` |
+|---|---|---|
+| work genuinely eliminated | down | down |
+| work relocated off the dispatch path | **down hard** | flat (or slightly up) |
+| work added | up | up |
+
+Both are worth optimizing — responsiveness and throughput are different goals — but they are different claims and the table should make that visible.
+
 ## Adding a benchmark
 
 Benchmarks live in `src/scenarios/`. Each benchmark must render a React component:
