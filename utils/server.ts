@@ -154,6 +154,8 @@ export async function capturePageStats(
   // Optional V8 CPU profiling
   if (enableProfiling) {
     await cdp.send('Profiler.enable')
+    // 100µs sampling (default is 1000µs) for usable line-level positionTicks
+    await cdp.send('Profiler.setSamplingInterval', { interval: 100 })
     await cdp.send('Profiler.start')
   }
 

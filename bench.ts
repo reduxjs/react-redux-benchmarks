@@ -250,6 +250,16 @@ async function runBenchmarks(args: string[]) {
     await $`yalc add react-redux`.cwd(BENCH_DIR);
     await $`pnpm install`.cwd(BENCH_DIR);
 
+    // Scenario bundles resolve the signals build via the
+    // `react-redux-${SIGNALS_VERSION}: file:.yalc/react-redux` package.json alias.
+    // pnpm does NOT re-materialize the alias's copy under node_modules/.pnpm after
+    // a yalc push — `pnpm install` (even --force) says "Already up to date" and
+    // leaves it stale. Remove + re-add forces a fresh copy.
+    const aliasName = `react-redux-${SIGNALS_VERSION}`;
+    const aliasSpec = `${aliasName}@file:.yalc/react-redux`;
+    try { await $`pnpm remove ${aliasName}`.cwd(BENCH_DIR).quiet(); } catch { /* ok if not installed */ }
+    await $`pnpm add ${aliasSpec}`.cwd(BENCH_DIR);
+
     // Build benchmarks
     console.log("[6/7] Building benchmarks (instrumented)...");
     await $`pnpm build --instrument`.cwd(BENCH_DIR);
@@ -341,6 +351,7 @@ async function compareResults(files: string[]) {
     reconcile: number | null;
     recNum: number | null;
     rrTime: number | null;
+    blocked: number | null;
   }
 
   function extract(r: ResultFile, scenario: string): Row | null {
@@ -355,6 +366,7 @@ async function compareResults(files: string[]) {
       reconcile: stats.instrumentation?.reconcileTime ?? null,
       recNum: stats.instrumentation?.reconcileCount ?? null,
       rrTime: stats.moduleBreakdown?.["react-redux"] ?? null,
+      blocked: stats.dispatch.totalTime,
     };
   }
 
@@ -362,6 +374,7 @@ async function compareResults(files: string[]) {
   type MetricDef = [string, (r: Row) => number | null, number];
   const metrics: MetricDef[] = [
     ["Script",    (r) => r.script,    0],
+    ["Blocked",   (r) => r.blocked,   0],
     ["SigSel",    (r) => r.sigSel,    1],
     ["Sig#",      (r) => r.sigNum,    0],
     ["Reconcile", (r) => r.reconcile, 1],
@@ -481,8 +494,8 @@ function reportResults(args: string[]) {
   console.log(`- Run: ${m.timestamp.slice(0, 19).replace("T", " ")} UTC, ${m.benchmarkArgs.length}s per scenario`);
   console.log(`- Comparing: \`${base}\` (base) → \`${target}\``);
   console.log("");
-  console.log("| Scenario | Script (ms) | Dispatch avg (ms) | Avg update (ms) | Renders |");
-  console.log("| --- | --- | --- | --- | --- |");
+  console.log("| Scenario | Script (ms) | Blocked (ms) | Mount (ms) | Dispatch avg (ms) | Avg update (ms) | Renders |");
+  console.log("| --- | --- | --- | --- | --- | --- | --- |");
 
   for (const scenario of scenarios) {
     const baseStats = data.results[scenario]?.[base];
@@ -491,6 +504,8 @@ function reportResults(args: string[]) {
 
     const cols = [
       cell(baseStats?.cdp.scriptDuration, targetStats?.cdp.scriptDuration, 0),
+      cell(baseStats?.dispatch.totalTime, targetStats?.dispatch.totalTime, 0),
+      cell(baseStats?.react.mountTime, targetStats?.react.mountTime, 1),
       cell(baseStats?.dispatch.avgTime, targetStats?.dispatch.avgTime, 2),
       cell(baseStats?.react.avgUpdateTime, targetStats?.react.avgUpdateTime, 2),
       cell(baseStats?.react.renderCount, targetStats?.react.renderCount, 0),
@@ -500,6 +515,8 @@ function reportResults(args: string[]) {
 
   console.log("");
   console.log("_Negative deltas = better (less time / fewer renders). Render counts can rise when the base build drops frames under load._");
+  console.log("");
+  console.log("_`Blocked` = total ms inside `dispatch()`. It shows where work runs, not how much: read it next to `Script`. Note it double-counts nested dispatches, so thunk-heavy scenarios (RTKQ) overstate it._");
 }
 
 function listResults() {
