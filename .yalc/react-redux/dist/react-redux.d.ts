@@ -1,6 +1,38 @@
 import * as React from 'react';
-import { MemoExoticComponent, ForwardRefExoticComponent, Context, ReactNode, ComponentType, ComponentClass, ClassAttributes, FunctionComponent, JSX } from 'react';
+import { Context, MemoExoticComponent, ForwardRefExoticComponent, ComponentType, ComponentClass, ClassAttributes, FunctionComponent, JSX, ReactNode } from 'react';
 import { Action, UnknownAction, Store, Dispatch } from 'redux';
+
+type VoidFunc = () => void;
+type Listener = {
+    callback: VoidFunc;
+    next: Listener | null;
+    prev: Listener | null;
+};
+declare function createListenerCollection(): {
+    clear(): void;
+    notify(): void;
+    get(): Listener[];
+    subscribe(callback: () => void): () => void;
+};
+type ListenerCollection = ReturnType<typeof createListenerCollection>;
+interface Subscription {
+    addNestedSub: (listener: VoidFunc) => VoidFunc;
+    notifyNestedSubs: VoidFunc;
+    handleChangeWrapper: VoidFunc;
+    isSubscribed: () => boolean;
+    onStateChange?: VoidFunc | null;
+    trySubscribe: VoidFunc;
+    tryUnsubscribe: VoidFunc;
+    getListeners: () => ListenerCollection;
+}
+
+interface ReactReduxContextValue<SS = any, A extends Action<string> = UnknownAction> extends Pick<ProviderProps, 'stabilityCheck' | 'identityFunctionCheck'> {
+    store: Store<SS, A>;
+    subscription: Subscription;
+    getServerState?: () => SS;
+}
+declare const ReactReduxContext: Context<ReactReduxContextValue<any, UnknownAction> | null>;
+type ReactReduxContextInstance = typeof ReactReduxContext;
 
 /**
  * Copyright 2015, Yahoo! Inc.
@@ -49,255 +81,6 @@ type NonReactStatics<Source, C extends {
 } = {}> = {
     [key in Exclude<keyof Source, Source extends MemoExoticComponent<any> ? keyof typeof MEMO_STATICS | keyof C : Source extends ForwardRefExoticComponent<any> ? keyof typeof FORWARD_REF_STATICS | keyof C : keyof typeof REACT_STATICS | keyof typeof KNOWN_STATICS | keyof C>]: Source[key];
 };
-
-type VoidFunc = () => void;
-type Listener = {
-    callback: VoidFunc;
-    next: Listener | null;
-    prev: Listener | null;
-};
-declare function createListenerCollection(): {
-    clear(): void;
-    notify(): void;
-    get(): Listener[];
-    subscribe(callback: () => void): () => void;
-};
-type ListenerCollection = ReturnType<typeof createListenerCollection>;
-interface Subscription {
-    addNestedSub: (listener: VoidFunc) => VoidFunc;
-    notifyNestedSubs: VoidFunc;
-    handleChangeWrapper: VoidFunc;
-    isSubscribed: () => boolean;
-    onStateChange?: VoidFunc | null;
-    trySubscribe: VoidFunc;
-    tryUnsubscribe: VoidFunc;
-    getListeners: () => ListenerCollection;
-}
-
-interface ProviderProps<A extends Action<string> = UnknownAction, S = unknown> {
-    /**
-     * The single Redux store in your application.
-     */
-    store: Store<S, A>;
-    /**
-     * An optional server state snapshot. Will be used during initial hydration render if available, to ensure that the UI output is consistent with the HTML generated on the server.
-     */
-    serverState?: S;
-    /**
-     * Optional context to be used internally in react-redux. Use React.createContext() to create a context to be used.
-     * If this is used, you'll need to customize `connect` by supplying the same context provided to the Provider.
-     * Set the initial value to null, and the hooks will error
-     * if this is not overwritten by Provider.
-     */
-    context?: Context<ReactReduxContextValue<S, A> | null>;
-    /**
-     * Determines the frequency of stability checks for all selectors.
-     * This setting overrides the global configuration for
-     * the `useSelector` stability check, allowing you to specify how often
-     * these checks should occur in development mode.
-     *
-     * @since 8.1.0
-     */
-    stabilityCheck?: DevModeCheckFrequency;
-    /**
-     * Determines the frequency of identity function checks for all selectors.
-     * This setting overrides the global configuration for
-     * the `useSelector` identity function check, allowing you to specify how often
-     * these checks should occur in development mode.
-     *
-     * **Note**: Previously referred to as `noopCheck`.
-     *
-     * @since 9.0.0
-     */
-    identityFunctionCheck?: DevModeCheckFrequency;
-    children: ReactNode;
-}
-
-interface ReactReduxContextValue<SS = any, A extends Action<string> = UnknownAction> extends Pick<ProviderProps, 'stabilityCheck' | 'identityFunctionCheck'> {
-    store: Store<SS, A>;
-    subscription: Subscription;
-    getServerState?: () => SS;
-}
-declare const ReactReduxContext: Context<ReactReduxContextValue<any, UnknownAction> | null>;
-type ReactReduxContextInstance = typeof ReactReduxContext;
-
-/**
- * The frequency of development mode checks.
- *
- * @since 8.1.0
- * @internal
- */
-type DevModeCheckFrequency = 'never' | 'once' | 'always';
-/**
- * Represents the configuration for development mode checks.
- *
- * @since 9.0.0
- * @internal
- */
-interface DevModeChecks {
-    /**
-     * Overrides the global stability check for the selector.
-     * - `once` - Run only the first time the selector is called.
-     * - `always` - Run every time the selector is called.
-     * - `never` - Never run the stability check.
-     *
-     * @default 'once'
-     *
-     * @since 8.1.0
-     */
-    stabilityCheck: DevModeCheckFrequency;
-    /**
-     * Overrides the global identity function check for the selector.
-     * - `once` - Run only the first time the selector is called.
-     * - `always` - Run every time the selector is called.
-     * - `never` - Never run the identity function check.
-     *
-     * **Note**: Previously referred to as `noopCheck`.
-     *
-     * @default 'once'
-     *
-     * @since 9.0.0
-     */
-    identityFunctionCheck: DevModeCheckFrequency;
-}
-interface UseSelectorOptions<Selected = unknown> {
-    equalityFn?: EqualityFn<Selected>;
-    /**
-     * `useSelector` performs additional checks in development mode to help
-     * identify and warn about potential issues in selector behavior. This
-     * option allows you to customize the behavior of these checks per selector.
-     *
-     * @since 9.0.0
-     */
-    devModeChecks?: Partial<DevModeChecks>;
-}
-/**
- * Represents a custom hook that allows you to extract data from the
- * Redux store state, using a selector function. The selector function
- * takes the current state as an argument and returns a part of the state
- * or some derived data. The hook also supports an optional equality
- * function or options object to customize its behavior.
- *
- * @template StateType - The specific type of state this hook operates on.
- *
- * @public
- */
-interface UseSelector<StateType = unknown> {
-    /**
-     * A function that takes a selector function as its first argument.
-     * The selector function is responsible for selecting a part of
-     * the Redux store's state or computing derived data.
-     *
-     * @param selector - A function that receives the current state and returns a part of the state or some derived data.
-     * @param equalityFnOrOptions - An optional equality function or options object for customizing the behavior of the selector.
-     * @returns The selected part of the state or derived data.
-     *
-     * @template TState - The specific type of state this hook operates on.
-     * @template Selected - The type of the value that the selector function will return.
-     */
-    <TState extends StateType = StateType, Selected = unknown>(selector: (state: TState) => Selected, equalityFnOrOptions?: EqualityFn<Selected> | UseSelectorOptions<Selected>): Selected;
-    /**
-     * Creates a "pre-typed" version of {@linkcode useSelector useSelector}
-     * where the `state` type is predefined.
-     *
-     * This allows you to set the `state` type once, eliminating the need to
-     * specify it with every {@linkcode useSelector useSelector} call.
-     *
-     * @returns A pre-typed `useSelector` with the state type already defined.
-     *
-     * @example
-     * ```ts
-     * export const useAppSelector = useSelector.withTypes<RootState>()
-     * ```
-     *
-     * @template OverrideStateType - The specific type of state this hook operates on.
-     *
-     * @since 9.1.0
-     */
-    withTypes: <OverrideStateType extends StateType>() => UseSelector<OverrideStateType>;
-}
-/**
- * Hook factory, which creates a `useSelector` hook bound to a given context.
- *
- * @param {React.Context} [context=ReactReduxContext] Context passed to your `<Provider>`.
- * @returns {Function} A `useSelector` hook bound to the specified context.
- */
-declare function createSelectorHook(context?: React.Context<ReactReduxContextValue<any, any> | null>): UseSelector;
-
-type FixTypeLater = any;
-type EqualityFn<T> = (a: T, b: T) => boolean;
-type ExtendedEqualityFn<T, P> = (a: T, b: T, c: P, d: P) => boolean;
-type AnyIfEmpty<T extends object> = keyof T extends never ? any : T;
-type DistributiveOmit<T, K extends keyof T> = T extends unknown ? Omit<T, K> : never;
-interface DispatchProp<A extends Action<string> = UnknownAction> {
-    dispatch: Dispatch<A>;
-}
-/**
- * A property P will be present if:
- * - it is present in DecorationTargetProps
- *
- * Its value will be dependent on the following conditions
- * - if property P is present in InjectedProps and its definition extends the definition
- *   in DecorationTargetProps, then its definition will be that of DecorationTargetProps[P]
- * - if property P is not present in InjectedProps then its definition will be that of
- *   DecorationTargetProps[P]
- * - if property P is present in InjectedProps but does not extend the
- *   DecorationTargetProps[P] definition, its definition will be that of InjectedProps[P]
- */
-type Matching<InjectedProps, DecorationTargetProps> = {
-    [P in keyof DecorationTargetProps]: P extends keyof InjectedProps ? InjectedProps[P] extends DecorationTargetProps[P] ? DecorationTargetProps[P] : InjectedProps[P] : DecorationTargetProps[P];
-};
-/**
- * a property P will be present if :
- * - it is present in both DecorationTargetProps and InjectedProps
- * - InjectedProps[P] can satisfy DecorationTargetProps[P]
- * ie: decorated component can accept more types than decorator is injecting
- *
- * For decoration, inject props or ownProps are all optionally
- * required by the decorated (right hand side) component.
- * But any property required by the decorated component must be satisfied by the injected property.
- */
-type Shared<InjectedProps, DecorationTargetProps> = {
-    [P in Extract<keyof InjectedProps, keyof DecorationTargetProps>]?: InjectedProps[P] extends DecorationTargetProps[P] ? DecorationTargetProps[P] : never;
-};
-type GetProps<C> = C extends ComponentType<infer P> ? C extends ComponentClass<P> ? ClassAttributes<InstanceType<C>> & P : P : never;
-type GetLibraryManagedProps<C> = JSX.LibraryManagedAttributes<C, GetProps<C>>;
-type ConnectedComponent<C extends ComponentType<any>, P> = FunctionComponent<P> & NonReactStatics<C> & {
-    WrappedComponent: C;
-};
-type ConnectPropsMaybeWithoutContext<TActualOwnProps> = TActualOwnProps extends {
-    context: any;
-} ? Omit<ConnectProps, 'context'> : ConnectProps;
-type Identity<T> = T;
-type Mapped<T> = Identity<{
-    [k in keyof T]: T[k];
-}>;
-type InferableComponentEnhancerWithProps<TInjectedProps, TNeedsProps> = <C extends ComponentType<Matching<TInjectedProps, GetProps<C>>>>(component: C) => ConnectedComponent<C, Mapped<DistributiveOmit<GetLibraryManagedProps<C>, keyof Shared<TInjectedProps, GetLibraryManagedProps<C>>> & TNeedsProps & ConnectPropsMaybeWithoutContext<TNeedsProps & GetProps<C>>>>;
-type InferableComponentEnhancer<TInjectedProps> = InferableComponentEnhancerWithProps<TInjectedProps, {}>;
-type InferThunkActionCreatorType<TActionCreator extends (...args: any[]) => any> = TActionCreator extends (...args: infer TParams) => (...args: any[]) => infer TReturn ? (...args: TParams) => TReturn : TActionCreator;
-type HandleThunkActionCreator<TActionCreator> = TActionCreator extends (...args: any[]) => any ? InferThunkActionCreatorType<TActionCreator> : TActionCreator;
-type ResolveThunks<TDispatchProps> = TDispatchProps extends {
-    [key: string]: any;
-} ? {
-    [C in keyof TDispatchProps]: HandleThunkActionCreator<TDispatchProps[C]>;
-} : TDispatchProps;
-/**
- * This interface allows you to easily create a hook that is properly typed for your
- * store's root state.
- *
- * @example
- *
- * interface RootState {
- *   property: string;
- * }
- *
- * const useTypedSelector: TypedUseSelectorHook<RootState> = useSelector;
- */
-interface TypedUseSelectorHook<TState> {
-    <TSelected>(selector: (state: TState) => TSelected, equalityFn?: EqualityFn<NoInfer<TSelected>>): TSelected;
-    <Selected = unknown>(selector: (state: TState) => Selected, options?: UseSelectorOptions<Selected>): Selected;
-}
-type NoInfer<T> = [T][T extends any ? 0 : never];
 
 type SelectorFactory<S, TProps, TOwnProps, TFactoryOptions> = (dispatch: Dispatch<Action<string>>, factoryOptions: TFactoryOptions) => Selector<S, TProps, TOwnProps>;
 type Selector<S, TProps, TOwnProps = null> = TOwnProps extends null | undefined ? (state: S) => TProps : (state: S, ownProps: TOwnProps) => TProps;
@@ -404,9 +187,222 @@ declare const connect: Connect;
  */
 declare const legacy_connect: Connect;
 
-declare function shallowEqual(objA: any, objB: any): boolean;
+type FixTypeLater = any;
+type EqualityFn<T> = (a: T, b: T) => boolean;
+type ExtendedEqualityFn<T, P> = (a: T, b: T, c: P, d: P) => boolean;
+type AnyIfEmpty<T extends object> = keyof T extends never ? any : T;
+type DistributiveOmit<T, K extends keyof T> = T extends unknown ? Omit<T, K> : never;
+interface DispatchProp<A extends Action<string> = UnknownAction> {
+    dispatch: Dispatch<A>;
+}
+/**
+ * A property P will be present if:
+ * - it is present in DecorationTargetProps
+ *
+ * Its value will be dependent on the following conditions
+ * - if property P is present in InjectedProps and its definition extends the definition
+ *   in DecorationTargetProps, then its definition will be that of DecorationTargetProps[P]
+ * - if property P is not present in InjectedProps then its definition will be that of
+ *   DecorationTargetProps[P]
+ * - if property P is present in InjectedProps but does not extend the
+ *   DecorationTargetProps[P] definition, its definition will be that of InjectedProps[P]
+ */
+type Matching<InjectedProps, DecorationTargetProps> = {
+    [P in keyof DecorationTargetProps]: P extends keyof InjectedProps ? InjectedProps[P] extends DecorationTargetProps[P] ? DecorationTargetProps[P] : InjectedProps[P] : DecorationTargetProps[P];
+};
+/**
+ * a property P will be present if :
+ * - it is present in both DecorationTargetProps and InjectedProps
+ * - InjectedProps[P] can satisfy DecorationTargetProps[P]
+ * ie: decorated component can accept more types than decorator is injecting
+ *
+ * For decoration, inject props or ownProps are all optionally
+ * required by the decorated (right hand side) component.
+ * But any property required by the decorated component must be satisfied by the injected property.
+ */
+type Shared<InjectedProps, DecorationTargetProps> = {
+    [P in Extract<keyof InjectedProps, keyof DecorationTargetProps>]?: InjectedProps[P] extends DecorationTargetProps[P] ? DecorationTargetProps[P] : never;
+};
+type GetProps<C> = C extends ComponentType<infer P> ? C extends ComponentClass<P> ? ClassAttributes<InstanceType<C>> & P : P : never;
+type GetLibraryManagedProps<C> = JSX.LibraryManagedAttributes<C, GetProps<C>>;
+type ConnectedComponent<C extends ComponentType<any>, P> = FunctionComponent<P> & NonReactStatics<C> & {
+    WrappedComponent: C;
+};
+type ConnectPropsMaybeWithoutContext<TActualOwnProps> = TActualOwnProps extends {
+    context: any;
+} ? Omit<ConnectProps, 'context'> : ConnectProps;
+type Identity<T> = T;
+type Mapped<T> = Identity<{
+    [k in keyof T]: T[k];
+}>;
+type InferableComponentEnhancerWithProps<TInjectedProps, TNeedsProps> = <C extends ComponentType<Matching<TInjectedProps, GetProps<C>>>>(component: C) => ConnectedComponent<C, Mapped<DistributiveOmit<GetLibraryManagedProps<C>, keyof Shared<TInjectedProps, GetLibraryManagedProps<C>>> & TNeedsProps & ConnectPropsMaybeWithoutContext<TNeedsProps & GetProps<C>>>>;
+type InferableComponentEnhancer<TInjectedProps> = InferableComponentEnhancerWithProps<TInjectedProps, {}>;
+type InferThunkActionCreatorType<TActionCreator extends (...args: any[]) => any> = TActionCreator extends (...args: infer TParams) => (...args: any[]) => infer TReturn ? (...args: TParams) => TReturn : TActionCreator;
+type HandleThunkActionCreator<TActionCreator> = TActionCreator extends (...args: any[]) => any ? InferThunkActionCreatorType<TActionCreator> : TActionCreator;
+type ResolveThunks<TDispatchProps> = TDispatchProps extends {
+    [key: string]: any;
+} ? {
+    [C in keyof TDispatchProps]: HandleThunkActionCreator<TDispatchProps[C]>;
+} : TDispatchProps;
+/**
+ * This interface allows you to easily create a hook that is properly typed for your
+ * store's root state.
+ *
+ * @example
+ *
+ * interface RootState {
+ *   property: string;
+ * }
+ *
+ * const useTypedSelector: TypedUseSelectorHook<RootState> = useSelector;
+ */
+interface TypedUseSelectorHook<TState> {
+    <TSelected>(selector: (state: TState) => TSelected, equalityFn?: EqualityFn<NoInfer$1<TSelected>>): TSelected;
+    <Selected = unknown>(selector: (state: TState) => Selected, options?: UseSelectorOptions<Selected>): Selected;
+}
+type NoInfer$1<T> = [T][T extends any ? 0 : never];
 
-declare function defaultNoopBatch(callback: () => void): void;
+/**
+ * The frequency of development mode checks.
+ *
+ * @since 8.1.0
+ * @internal
+ */
+type DevModeCheckFrequency = 'never' | 'once' | 'always';
+/**
+ * Represents the configuration for development mode checks.
+ *
+ * @since 9.0.0
+ * @internal
+ */
+interface DevModeChecks {
+    /**
+     * Overrides the global stability check for the selector.
+     * - `once` - Run only the first time the selector is called.
+     * - `always` - Run every time the selector is called.
+     * - `never` - Never run the stability check.
+     *
+     * @default 'once'
+     *
+     * @since 8.1.0
+     */
+    stabilityCheck: DevModeCheckFrequency;
+    /**
+     * Overrides the global identity function check for the selector.
+     * - `once` - Run only the first time the selector is called.
+     * - `always` - Run every time the selector is called.
+     * - `never` - Never run the identity function check.
+     *
+     * **Note**: Previously referred to as `noopCheck`.
+     *
+     * @default 'once'
+     *
+     * @since 9.0.0
+     */
+    identityFunctionCheck: DevModeCheckFrequency;
+}
+interface UseSelectorOptions<Selected = unknown> {
+    equalityFn?: EqualityFn<Selected>;
+    /**
+     * `useSelector` performs additional checks in development mode to help
+     * identify and warn about potential issues in selector behavior. This
+     * option allows you to customize the behavior of these checks per selector.
+     *
+     * @since 9.0.0
+     */
+    devModeChecks?: Partial<DevModeChecks>;
+}
+/**
+ * Represents a custom hook that allows you to extract data from the
+ * Redux store state, using a selector function. The selector function
+ * takes the current state as an argument and returns a part of the state
+ * or some derived data. The hook also supports an optional equality
+ * function or options object to customize its behavior.
+ *
+ * @template StateType - The specific type of state this hook operates on.
+ *
+ * @public
+ */
+interface UseSelector<StateType = unknown> {
+    /**
+     * A function that takes a selector function as its first argument.
+     * The selector function is responsible for selecting a part of
+     * the Redux store's state or computing derived data.
+     *
+     * @param selector - A function that receives the current state and returns a part of the state or some derived data.
+     * @param equalityFnOrOptions - An optional equality function or options object for customizing the behavior of the selector.
+     * @returns The selected part of the state or derived data.
+     *
+     * @template TState - The specific type of state this hook operates on.
+     * @template Selected - The type of the value that the selector function will return.
+     */
+    <TState extends StateType = StateType, Selected = unknown>(selector: (state: TState) => Selected, equalityFnOrOptions?: EqualityFn<Selected> | UseSelectorOptions<Selected>): Selected;
+    /**
+     * Creates a "pre-typed" version of {@linkcode useSelector useSelector}
+     * where the `state` type is predefined.
+     *
+     * This allows you to set the `state` type once, eliminating the need to
+     * specify it with every {@linkcode useSelector useSelector} call.
+     *
+     * @returns A pre-typed `useSelector` with the state type already defined.
+     *
+     * @example
+     * ```ts
+     * export const useAppSelector = useSelector.withTypes<RootState>()
+     * ```
+     *
+     * @template OverrideStateType - The specific type of state this hook operates on.
+     *
+     * @since 9.1.0
+     */
+    withTypes: <OverrideStateType extends StateType>() => UseSelector<OverrideStateType>;
+}
+/**
+ * Hook factory, which creates a `useSelector` hook bound to a given context.
+ *
+ * @param {React.Context} [context=ReactReduxContext] Context passed to your `<Provider>`.
+ * @returns {Function} A `useSelector` hook bound to the specified context.
+ */
+declare function createSelectorHook(context?: React.Context<ReactReduxContextValue<any, any> | null>): UseSelector;
+
+interface ProviderProps<A extends Action<string> = UnknownAction, S = unknown> {
+    /**
+     * The single Redux store in your application.
+     */
+    store: Store<S, A>;
+    /**
+     * An optional server state snapshot. Will be used during initial hydration render if available, to ensure that the UI output is consistent with the HTML generated on the server.
+     */
+    serverState?: S;
+    /**
+     * Optional context to be used internally in react-redux. Use React.createContext() to create a context to be used.
+     * If this is used, you'll need to customize `connect` by supplying the same context provided to the Provider.
+     * Set the initial value to null, and the hooks will error
+     * if this is not overwritten by Provider.
+     */
+    context?: Context<ReactReduxContextValue<S, A> | null>;
+    /**
+     * Determines the frequency of stability checks for all selectors.
+     * This setting overrides the global configuration for
+     * the `useSelector` stability check, allowing you to specify how often
+     * these checks should occur in development mode.
+     *
+     * @since 8.1.0
+     */
+    stabilityCheck?: DevModeCheckFrequency;
+    /**
+     * Determines the frequency of identity function checks for all selectors.
+     * This setting overrides the global configuration for
+     * the `useSelector` identity function check, allowing you to specify how often
+     * these checks should occur in development mode.
+     *
+     * **Note**: Previously referred to as `noopCheck`.
+     *
+     * @since 9.0.0
+     */
+    identityFunctionCheck?: DevModeCheckFrequency;
+    children: ReactNode;
+}
 
 interface ReactiveSignal<T> {
     get(): T;
@@ -434,18 +430,24 @@ interface SignalProviderProps<A extends Action<string> = UnknownAction, S = unkn
 declare function SignalProvider<S extends object, A extends Action = UnknownAction>(providerProps: SignalProviderProps<A, S>): React.JSX.Element;
 
 /**
- * A React hook that selects state from a Redux store using signal-based
- * dependency tracking. Only re-renders when the selected value actually
- * changes, with O(k) selectivity where k = number of affected selectors.
+ * The signal-based `useSignalSelector` hook, including the `withTypes`
+ * helper for creating a pre-typed version:
  *
- * Must be used within a <SignalProvider>.
- * @param selector - Function that extracts a value from the store state
- * @param equalityFn - Custom equality function for change detection
- * @returns The selected value
+ * ```ts
+ * export const useAppSignalSelector = useSignalSelector.withTypes<RootState>()
+ * ```
  */
-declare function useSignalSelector<S extends object, R>(selector: (state: S) => R, equalityFn?: (a: R, b: R) => boolean): R;
+interface UseSignalSelector<StateType = unknown> {
+    <TState extends StateType = StateType, Selected = unknown>(selector: (state: TState) => Selected, equalityFnOrOptions?: EqualityFn<NoInfer<Selected>> | UseSelectorOptions<NoInfer<Selected>>): Selected;
+    withTypes: <OverrideStateType extends StateType>() => UseSignalSelector<OverrideStateType>;
+}
+declare const useSignalSelector: UseSignalSelector<unknown>;
 
 declare function unwrap<T>(value: T): T;
+
+declare function shallowEqual(objA: any, objB: any): boolean;
+
+declare function defaultNoopBatch(callback: () => void): void;
 
 /**
  * Represents a custom hook that provides a dispatch function
@@ -598,6 +600,6 @@ declare const useStore: UseStore<Store<unknown, Action, unknown>>;
  */
 declare const batch: typeof defaultNoopBatch;
 declare const Provider: typeof SignalProvider;
-declare const useSelector: typeof useSignalSelector;
+declare const useSelector: UseSignalSelector<unknown>;
 
-export { type AnyIfEmpty, type Connect, type ConnectProps, type ConnectPropsMaybeWithoutContext, type ConnectedComponent, type ConnectedProps, type DispatchProp, type DistributiveOmit, type EqualityFn, type ExtendedEqualityFn, type FixTypeLater, type GetLibraryManagedProps, type GetProps, type HandleThunkActionCreator, type InferThunkActionCreatorType, type InferableComponentEnhancer, type InferableComponentEnhancerWithProps, type MapDispatchToProps, type MapDispatchToPropsFactory, type MapDispatchToPropsFunction, type MapDispatchToPropsNonObject, type MapDispatchToPropsParam, type MapStateToProps, type MapStateToPropsFactory, type MapStateToPropsParam, type Mapped, type Matching, type MergeProps, type NoInfer, Provider, type ProviderProps, ReactReduxContext, type ReactReduxContextValue, type ResolveThunks, type Selector, type SelectorFactory, type Shared, SignalProvider, type Subscription, type TypedUseSelectorHook, type UseDispatch, type UseSelector, type UseStore, batch, connect, createDispatchHook, createSelectorHook, createStoreHook, legacy_connect, shallowEqual, unwrap, useDispatch, useSelector, useSignalSelector, useStore };
+export { type AnyIfEmpty, type Connect, type ConnectProps, type ConnectPropsMaybeWithoutContext, type ConnectedComponent, type ConnectedProps, type DispatchProp, type DistributiveOmit, type EqualityFn, type ExtendedEqualityFn, type FixTypeLater, type GetLibraryManagedProps, type GetProps, type HandleThunkActionCreator, type InferThunkActionCreatorType, type InferableComponentEnhancer, type InferableComponentEnhancerWithProps, type MapDispatchToProps, type MapDispatchToPropsFactory, type MapDispatchToPropsFunction, type MapDispatchToPropsNonObject, type MapDispatchToPropsParam, type MapStateToProps, type MapStateToPropsFactory, type MapStateToPropsParam, type Mapped, type Matching, type MergeProps, type NoInfer$1 as NoInfer, Provider, type ProviderProps, ReactReduxContext, type ReactReduxContextValue, type ResolveThunks, type Selector, type SelectorFactory, type Shared, SignalProvider, type Subscription, type TypedUseSelectorHook, type UseDispatch, type UseSelector, type UseStore, batch, connect, createDispatchHook, createSelectorHook, createStoreHook, legacy_connect, shallowEqual, unwrap, useDispatch, useSelector, useSignalSelector, useStore };

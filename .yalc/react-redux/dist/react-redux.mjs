@@ -914,6 +914,475 @@ function getKeyValue(element, keyField) {
   return void 0;
 }
 
+// src/signals/arrayMethodOverrides.ts
+var FIND_METHODS = /* @__PURE__ */ new Set(["find", "findLast"]);
+var CALLBACK_METHODS = /* @__PURE__ */ new Set([
+  "find",
+  "findLast",
+  "filter",
+  "findIndex",
+  "findLastIndex",
+  "some",
+  "every"
+]);
+var OVERRIDDEN_METHODS = /* @__PURE__ */ new Set([
+  // Subset — return proxied results
+  "find",
+  "findLast",
+  "filter",
+  "slice",
+  // Primitive-returning
+  "findIndex",
+  "findLastIndex",
+  "some",
+  "every",
+  "indexOf",
+  "lastIndexOf",
+  "includes",
+  "join",
+  "toString",
+  "toLocaleString",
+  // Transform — return raw values
+  "concat",
+  "flat"
+]);
+function isOverriddenArrayMethod(prop) {
+  return OVERRIDDEN_METHODS.has(prop);
+}
+function normalizeSliceIndex(index, length) {
+  if (index < 0) {
+    return Math.max(length + index, 0);
+  }
+  return Math.min(index, length);
+}
+function createScanRecorder() {
+  const holder = { current: void 0 };
+  const recorder = {
+    proxy: null,
+    holder,
+    recorded: /* @__PURE__ */ new Set(),
+    fallback: false
+  };
+  recorder.proxy = new Proxy({}, {
+    get(_obj, prop) {
+      const current = holder.current;
+      if (typeof prop === "symbol") return current[prop];
+      recorder.recorded.add(prop);
+      const value = current[prop];
+      if (value !== null && typeof value === "object") {
+        recorder.fallback = true;
+      }
+      return value;
+    },
+    has(_obj, prop) {
+      if (typeof prop === "string") recorder.recorded.add(prop);
+      return Reflect.has(holder.current, prop);
+    },
+    ownKeys() {
+      recorder.fallback = true;
+      return Reflect.ownKeys(holder.current);
+    },
+    getOwnPropertyDescriptor(_obj, prop) {
+      recorder.fallback = true;
+      const desc = Object.getOwnPropertyDescriptor(
+        holder.current,
+        prop
+      );
+      return desc ? { ...desc, configurable: true } : desc;
+    },
+    getPrototypeOf() {
+      return Object.getPrototypeOf(holder.current);
+    },
+    set() {
+      return false;
+    },
+    deleteProperty() {
+      return false;
+    }
+  });
+  registerRecordingHolder(recorder.proxy, holder);
+  return recorder;
+}
+function presentElement(recorder, value) {
+  if (value !== null && typeof value === "object") {
+    recorder.holder.current = value;
+    return recorder.proxy;
+  }
+  recorder.fallback = true;
+  return value;
+}
+var STRUCTURE_DEPS = {
+  find: {
+    matched: ["insertOrReorder"],
+    missed: ["append", "insertOrReorder"]
+  },
+  findLast: {
+    matched: ["append", "insertOrReorder"],
+    missed: ["append", "insertOrReorder"]
+  },
+  findIndex: {
+    matched: ["insertOrReorder", "remove"],
+    missed: ["append", "insertOrReorder"]
+  },
+  findLastIndex: {
+    matched: ["append", "insertOrReorder", "remove"],
+    missed: ["append", "insertOrReorder"]
+  },
+  filter: {
+    matched: ["append", "insertOrReorder", "remove"],
+    missed: ["append", "insertOrReorder", "remove"]
+  },
+  some: {
+    matched: ["remove"],
+    missed: ["append", "insertOrReorder"]
+  },
+  every: {
+    // For every, "matched" = returned true (no counterexample found)
+    matched: ["append", "insertOrReorder"],
+    // "missed" = returned false (counterexample exists)
+    missed: ["remove"]
+  }
+};
+function finalizeScanDeps(recorder, registry, parentPath, target, method, matched) {
+  if (recorder.fallback || recorder.recorded.size === 0) {
+    registry.getOrCreate(parentPath, target).get();
+    return;
+  }
+  for (const prop of recorder.recorded) {
+    registry.trackColumn(parentPath, prop).get();
+  }
+  const kinds = STRUCTURE_DEPS[method];
+  if (kinds) {
+    const wanted = matched ? kinds.matched : kinds.missed;
+    for (const kind of wanted) {
+      registry.trackStructure(parentPath, kind).get();
+    }
+  }
+}
+function createArrayMethodInterceptor(target, proxy, method, registry, parentPath) {
+  return function intercepted(...args) {
+    const m = method;
+    if (CALLBACK_METHODS.has(m)) {
+      const callback = args[0];
+      const recorder = createScanRecorder();
+      let result;
+      let matched;
+      if (m === "filter") {
+        const matches = [];
+        for (let i = 0; i < target.length; i++) {
+          if (callback(presentElement(recorder, target[i]), i, target)) {
+            matches.push(proxy[i]);
+          }
+        }
+        result = matches;
+        matched = matches.length > 0;
+      } else if (FIND_METHODS.has(m)) {
+        const isForward = m === "find";
+        const step = isForward ? 1 : -1;
+        const start = isForward ? 0 : target.length - 1;
+        result = void 0;
+        for (let i = start; i >= 0 && i < target.length; i += step) {
+          if (callback(presentElement(recorder, target[i]), i, target)) {
+            result = proxy[i];
+            break;
+          }
+        }
+        matched = result !== void 0;
+      } else {
+        result = target[m](
+          (value, i, arr) => callback(presentElement(recorder, value), i, arr)
+        );
+        if (m === "findIndex" || m === "findLastIndex") {
+          matched = result !== -1;
+        } else {
+          matched = result === true;
+        }
+      }
+      finalizeScanDeps(recorder, registry, parentPath, target, m, matched);
+      return result;
+    }
+    registry.getOrCreate(parentPath, target).get();
+    if (m === "slice") {
+      const rawStart = args[0] ?? 0;
+      const rawEnd = args[1] ?? target.length;
+      const start = normalizeSliceIndex(rawStart, target.length);
+      const end = normalizeSliceIndex(rawEnd, target.length);
+      const result = [];
+      for (let i = start; i < end; i++) {
+        result.push(proxy[i]);
+      }
+      return result;
+    }
+    if (m === "includes" || m === "indexOf" || m === "lastIndexOf") {
+      const unwrappedArgs = args.map(
+        (arg, i) => i === 0 ? unwrap(arg) : arg
+      );
+      return target[m](...unwrappedArgs);
+    }
+    return target[m](...args);
+  };
+}
+
+// src/signals/trackingProxy.ts
+function isObjectOrArray(v) {
+  return v !== null && typeof v === "object";
+}
+function isPlainObject2(v) {
+  const proto = Object.getPrototypeOf(v);
+  return proto === Object.prototype || proto === null;
+}
+function isIndexProp(prop) {
+  const c = prop.charCodeAt(0);
+  return c >= 48 && c <= 57;
+}
+var proxyPathMap = /* @__PURE__ */ new WeakMap();
+var proxyTargetMap = /* @__PURE__ */ new WeakMap();
+var recordingHolders = /* @__PURE__ */ new WeakMap();
+function registerRecordingHolder(proxy, holder) {
+  recordingHolders.set(proxy, holder);
+}
+function getProxyPath(value) {
+  if (value !== null && typeof value === "object") {
+    return proxyPathMap.get(value);
+  }
+  return void 0;
+}
+function getProxyTarget(value) {
+  return proxyTargetMap.get(value);
+}
+function registerProxyTarget(proxy, target) {
+  proxyTargetMap.set(proxy, target);
+}
+function unwrap(value) {
+  if (value !== null && typeof value === "object") {
+    const target = proxyTargetMap.get(value);
+    if (target !== void 0) return target;
+    const holder = recordingHolders.get(value);
+    if (holder !== void 0) return holder.current;
+  }
+  return value;
+}
+function createTrackingProxy(target, parentPath, registry, cache, leafTracker) {
+  if (leafTracker !== void 0) {
+    registry.leafTrackerHolder.current = leafTracker;
+  }
+  const cached = cache.get(target);
+  if (cached) return cached;
+  const shell = Array.isArray(target) ? [] : Object.create(Object.getPrototypeOf(target));
+  const pathKeyCache = /* @__PURE__ */ new Map();
+  function getPathKey(prop) {
+    let key = pathKeyCache.get(prop);
+    if (key === void 0) {
+      const segment = encodePathSegment(prop);
+      key = parentPath ? parentPath + "." + segment : segment;
+      pathKeyCache.set(prop, key);
+    }
+    return key;
+  }
+  const proxy = new Proxy(shell, {
+    get(_obj, prop, _receiver) {
+      if (typeof prop === "symbol") return Reflect.get(target, prop);
+      const value = target[prop];
+      const leafTracker2 = registry.leafTrackerHolder.current;
+      if (typeof value === "function") {
+        if (Array.isArray(target) && isOverriddenArrayMethod(prop)) {
+          if (leafTracker2) {
+            leafTracker2.traversedPaths.add(parentPath);
+          }
+          return createArrayMethodInterceptor(target, proxy, prop, registry, parentPath);
+        }
+        return value;
+      }
+      if (Array.isArray(target) && parentPath !== "" && isIndexProp(prop) && !isObjectOrArray(value)) {
+        if (leafTracker2) {
+          leafTracker2.traversedPaths.add(parentPath);
+        }
+        registry.getOrCreate(parentPath, target).get();
+        return value;
+      }
+      let pathKey = getPathKey(prop);
+      if (isObjectOrArray(value)) {
+        if (Array.isArray(target) && !Array.isArray(value) && !isNaN(Number(prop))) {
+          let meta = registry.getArrayMeta(parentPath);
+          if (!meta) {
+            const keyField = findKeyField(value);
+            if (keyField) {
+              meta = { keyField, entityMap: /* @__PURE__ */ new Map() };
+              registry.setArrayMeta(parentPath, meta);
+            }
+          }
+          if (meta) {
+            const kv = getKeyValue(value, meta.keyField);
+            if (kv !== void 0) {
+              pathKey = buildIdentityPath(parentPath, meta.keyField, kv);
+            }
+          }
+        }
+        if (!Array.isArray(value) && !isPlainObject2(value)) {
+          if (leafTracker2) {
+            leafTracker2.traversedPaths.add(parentPath);
+          }
+          registry.getOrCreate(pathKey, value).get();
+          return value;
+        }
+        registry.ensurePrefix(pathKey);
+        if (leafTracker2) {
+          leafTracker2.traversedPaths.add(parentPath);
+        }
+        const childProxy = createTrackingProxy(
+          value,
+          pathKey,
+          registry,
+          cache
+        );
+        if (leafTracker2) {
+          leafTracker2.accessedObjects.set(pathKey, value);
+        }
+        return childProxy;
+      }
+      if (leafTracker2) {
+        leafTracker2.traversedPaths.add(parentPath);
+      }
+      registry.getOrCreate(pathKey, value).get();
+      return value;
+    },
+    // Track when selectors iterate keys (Object.keys, for...in, .map, .filter, etc.)
+    // Built raw (NOT via getPathKey): '@@keys' is a meta segment, and
+    // getPathKey would %-escape its '@'s like a state key's.
+    ownKeys(_obj) {
+      const keysPath = parentPath ? parentPath + ".@@keys" : "@@keys";
+      registry.getOrCreate(keysPath, Reflect.ownKeys(target)).get();
+      return Reflect.ownKeys(target);
+    },
+    // Track has() checks for conditional property access (e.g., 'key' in obj)
+    has(_obj, prop) {
+      if (typeof prop === "symbol") return Reflect.has(target, prop);
+      const pathKey = getPathKey(prop);
+      registry.getOrCreate(pathKey, target[prop]).get();
+      return Reflect.has(target, prop);
+    },
+    // Delegate to real target for property descriptors
+    getOwnPropertyDescriptor(_obj, prop) {
+      const desc = Object.getOwnPropertyDescriptor(target, prop);
+      if (desc) {
+        return { ...desc, configurable: true };
+      }
+      return desc;
+    },
+    // Report the real target's prototype
+    getPrototypeOf(_obj) {
+      return Object.getPrototypeOf(target);
+    },
+    // Report the real target's extensibility
+    isExtensible(_obj) {
+      return Object.isExtensible(target);
+    },
+    // Prevent mutation
+    set() {
+      return false;
+    },
+    deleteProperty() {
+      return false;
+    }
+  });
+  cache.set(target, proxy);
+  proxyPathMap.set(proxy, parentPath);
+  proxyTargetMap.set(proxy, target);
+  return proxy;
+}
+
+// src/signals/coarseSegments.ts
+var EMPTY = [];
+function createSegmentIndex() {
+  const all = /* @__PURE__ */ new Set();
+  const bySegment = /* @__PURE__ */ new Map();
+  const wildcards = /* @__PURE__ */ new Set();
+  return {
+    register(sub) {
+      if (all.has(sub)) return;
+      all.add(sub);
+      if (sub.segments === null) {
+        wildcards.add(sub);
+        return;
+      }
+      for (const seg of sub.segments) {
+        let bucket = bySegment.get(seg);
+        if (bucket === void 0) {
+          bucket = /* @__PURE__ */ new Set();
+          bySegment.set(seg, bucket);
+        }
+        bucket.add(sub);
+      }
+    },
+    unregister(sub) {
+      if (!all.delete(sub)) return;
+      if (sub.segments === null) {
+        wildcards.delete(sub);
+        return;
+      }
+      for (const seg of sub.segments) {
+        const bucket = bySegment.get(seg);
+        if (bucket !== void 0) {
+          bucket.delete(sub);
+          if (bucket.size === 0) bySegment.delete(seg);
+        }
+      }
+    },
+    collect(changedRootKeys) {
+      if (all.size === 0) return EMPTY;
+      if (changedRootKeys === null) return Array.from(all);
+      if (changedRootKeys.length === 0) {
+        return wildcards.size > 0 ? Array.from(wildcards) : EMPTY;
+      }
+      const hits = new Set(wildcards);
+      for (let i = 0; i < changedRootKeys.length; i++) {
+        const bucket = bySegment.get(changedRootKeys[i]);
+        if (bucket !== void 0) {
+          for (const sub of bucket) hits.add(sub);
+        }
+      }
+      return hits.size > 0 ? Array.from(hits) : EMPTY;
+    },
+    size() {
+      return all.size;
+    }
+  };
+}
+function createProbeProxy(state) {
+  const record = { segments: /* @__PURE__ */ new Set(), enumerated: false };
+  const proxy = new Proxy(state, {
+    get(target, prop) {
+      if (typeof prop === "symbol") return Reflect.get(target, prop);
+      record.segments.add(prop);
+      return target[prop];
+    },
+    has(target, prop) {
+      if (typeof prop !== "symbol") record.segments.add(prop);
+      return Reflect.has(target, prop);
+    },
+    ownKeys(target) {
+      record.enumerated = true;
+      return Reflect.ownKeys(target);
+    },
+    // Fires for Object.getOwnPropertyDescriptor and hasOwnProperty, and
+    // per-key during enumeration (where `enumerated` is already set by
+    // ownKeys). A single descriptor read reveals one key's existence and
+    // value — record it as a segment read, like get/has.
+    getOwnPropertyDescriptor(target, prop) {
+      if (typeof prop !== "symbol") record.segments.add(prop);
+      return Reflect.getOwnPropertyDescriptor(target, prop);
+    },
+    set() {
+      return false;
+    },
+    deleteProperty() {
+      return false;
+    }
+  });
+  registerProxyTarget(proxy, state);
+  return { proxy, record };
+}
+
 // src/signals/pathSignalRegistry.ts
 function buildColumnPath(arrayPath, prop) {
   return arrayPath + ".{*}." + encodePathSegment(prop);
@@ -921,9 +1390,10 @@ function buildColumnPath(arrayPath, prop) {
 function buildStructurePath(arrayPath, kind) {
   return arrayPath + ".@@" + kind;
 }
-function isObjectOrArray(v) {
+function isObjectOrArray2(v) {
   return v !== null && typeof v === "object";
 }
+var PRUNED = Symbol("pruned");
 function incrementPrefixes(prefixCounts, pathKey) {
   prefixCounts.set(pathKey, (prefixCounts.get(pathKey) || 0) + 1);
   let idx = pathKey.lastIndexOf(".");
@@ -974,7 +1444,7 @@ function createPathSignalRegistry(engine) {
     getOrCreate(pathKey, currentValue) {
       let sig = signals.get(pathKey);
       if (!sig) {
-        const initialValue = isObjectOrArray(currentValue) ? 0 : currentValue;
+        const initialValue = isObjectOrArray2(currentValue) ? 0 : currentValue;
         sig = engine.signal(initialValue);
         signals.set(pathKey, sig);
         addToChildIndex(pathKey);
@@ -995,7 +1465,7 @@ function createPathSignalRegistry(engine) {
     update(pathKey, newValue) {
       const sig = signals.get(pathKey);
       if (!sig) return;
-      if (isObjectOrArray(newValue)) {
+      if (isObjectOrArray2(newValue)) {
         const current = sig.get();
         sig.set(typeof current === "number" ? current + 1 : 0);
       } else {
@@ -1018,8 +1488,7 @@ function createPathSignalRegistry(engine) {
         }
         if (signals.has(key)) {
           const sig = signals.get(key);
-          const current = sig.get();
-          sig.set(typeof current === "number" ? current + 1 : current);
+          sig.set(PRUNED);
           signals.delete(key);
           decrementPrefixes(prefixCounts, key);
         } else if (prefixOnlyPaths.has(key)) {
@@ -1058,6 +1527,7 @@ function createPathSignalRegistry(engine) {
     debugPaths() {
       return Array.from(signals.keys()).sort();
     },
+    segmentIndex: createSegmentIndex(),
     proxyCache: proxyWeakMap,
     leafTrackerHolder: { current: void 0 },
     getArrayMeta(arrayPath) {
@@ -1108,12 +1578,12 @@ function createPathSignalRegistry(engine) {
 }
 
 // src/signals/diff.ts
-function isPlainObject2(v) {
+function isPlainObject3(v) {
   if (v === null || typeof v !== "object") return false;
   const proto = Object.getPrototypeOf(v);
   return proto === Object.prototype || proto === null;
 }
-function diffObject(prev, next, parentPath, registry) {
+function diffObject(prev, next, parentPath, registry, changedRootKeys) {
   const nextKeys = Object.keys(next);
   const prevKeys = Object.keys(prev);
   let keysChanged = prevKeys.length !== nextKeys.length;
@@ -1127,8 +1597,15 @@ function diffObject(prev, next, parentPath, registry) {
     }
     const prevVal = prev[key];
     const nextVal = next[key];
-    if (prevVal === nextVal || prevVal !== prevVal && nextVal !== nextVal)
+    if (prevVal === nextVal || prevVal !== prevVal && nextVal !== nextVal) {
+      if (changedRootKeys !== void 0 && nextVal === void 0 && !(key in prev)) {
+        changedRootKeys.push(key);
+      }
       continue;
+    }
+    if (changedRootKeys !== void 0) {
+      changedRootKeys.push(key);
+    }
     const segment = encodePathSegment(key);
     const childPath = parentPath ? parentPath + "." + segment : segment;
     if (registry.hasPrefix(childPath)) {
@@ -1140,6 +1617,9 @@ function diffObject(prev, next, parentPath, registry) {
     registry.update(keysPath, nextKeys);
     for (let i = 0; i < prevKeys.length; i++) {
       if (!(prevKeys[i] in next)) {
+        if (changedRootKeys !== void 0) {
+          changedRootKeys.push(prevKeys[i]);
+        }
         const segment = encodePathSegment(prevKeys[i]);
         const childPath = parentPath ? parentPath + "." + segment : segment;
         registry.prune(childPath);
@@ -1209,7 +1689,7 @@ function bumpAllColumns(parentPath, registry, cols) {
 }
 function diffAndUpdateSignals(prev, next, parentPath, registry) {
   if (prev === next || prev !== prev && next !== next) return;
-  if (isPlainObject2(prev) && isPlainObject2(next)) {
+  if (isPlainObject3(prev) && isPlainObject3(next)) {
     diffObject(prev, next, parentPath, registry);
     return;
   }
@@ -1446,10 +1926,20 @@ function diffArrayByIndex(prev, next, parentPath, registry) {
     registry.prune(childPath);
   }
 }
+var NO_CHANGED_KEYS = [];
 function reconcileState(prev, next, registry, engine) {
+  if (prev === next) return NO_CHANGED_KEYS;
+  if (isPlainObject3(prev) && isPlainObject3(next)) {
+    const changedRootKeys = [];
+    engine.batch(() => {
+      diffObject(prev, next, "", registry, changedRootKeys);
+    });
+    return changedRootKeys;
+  }
   engine.batch(() => {
     diffAndUpdateSignals(prev, next, "", registry);
   });
+  return null;
 }
 
 // src/signals/engine.ts
@@ -1540,7 +2030,13 @@ function SignalProvider(providerProps) {
       const prev = prevStateRef.current;
       const next = store.getState();
       prevStateRef.current = next;
-      reconcileState(prev, next, registry, engine);
+      const changedRootKeys = reconcileState(prev, next, registry, engine);
+      if (prev !== next && registry.segmentIndex.size() > 0) {
+        const hits = registry.segmentIndex.collect(changedRootKeys);
+        for (let i = 0; i < hits.length; i++) {
+          hits[i].onCoarseHit();
+        }
+      }
       subscription.notifyNestedSubs();
     };
     subscription.trySubscribe();
@@ -1557,434 +2053,28 @@ function SignalProvider(providerProps) {
 }
 
 // src/signals/context.ts
-function useSignalContext() {
-  const contextValue = React.useContext(
-    ReactReduxContext
-  );
-  if (!contextValue) {
-    throw new Error(
-      "useSignalSelector must be used within a <SignalProvider>"
+function createSignalContextHook(context = ReactReduxContext) {
+  return function useSignalContext2() {
+    const contextValue = React.useContext(
+      context
     );
-  }
-  if (!("registry" in contextValue) || !("engine" in contextValue)) {
-    throw new Error(
-      "useSignalSelector must be used within a <SignalProvider>, not a regular <Provider>"
-    );
-  }
-  return contextValue;
-}
-
-// src/signals/untrackQueue.ts
-var queue = null;
-function beginEvaluationQueue() {
-  queue = [];
-}
-function clearEvaluationQueue() {
-  queue = null;
-}
-function registerEscapeCandidate(container) {
-  queue?.push(container);
-}
-function drainEvaluationQueue() {
-  if (queue === null || queue.length === 0) return [];
-  const drained = queue;
-  queue = [];
-  return drained;
-}
-
-// src/signals/arrayMethodOverrides.ts
-var FIND_METHODS = /* @__PURE__ */ new Set(["find", "findLast"]);
-var CALLBACK_METHODS = /* @__PURE__ */ new Set([
-  "find",
-  "findLast",
-  "filter",
-  "findIndex",
-  "findLastIndex",
-  "some",
-  "every"
-]);
-var OVERRIDDEN_METHODS = /* @__PURE__ */ new Set([
-  // Subset — return proxied results
-  "find",
-  "findLast",
-  "filter",
-  "slice",
-  // Primitive-returning
-  "findIndex",
-  "findLastIndex",
-  "some",
-  "every",
-  "indexOf",
-  "lastIndexOf",
-  "includes",
-  "join",
-  "toString",
-  "toLocaleString",
-  // Transform — return raw values
-  "concat",
-  "flat"
-]);
-function isOverriddenArrayMethod(prop) {
-  return OVERRIDDEN_METHODS.has(prop);
-}
-function normalizeSliceIndex(index, length) {
-  if (index < 0) {
-    return Math.max(length + index, 0);
-  }
-  return Math.min(index, length);
-}
-function createScanRecorder() {
-  const holder = { current: void 0 };
-  const recorder = {
-    proxy: null,
-    holder,
-    recorded: /* @__PURE__ */ new Set(),
-    fallback: false
-  };
-  recorder.proxy = new Proxy({}, {
-    get(_obj, prop) {
-      const current = holder.current;
-      if (typeof prop === "symbol") return current[prop];
-      recorder.recorded.add(prop);
-      const value = current[prop];
-      if (value !== null && typeof value === "object") {
-        recorder.fallback = true;
-      }
-      return value;
-    },
-    has(_obj, prop) {
-      if (typeof prop === "string") recorder.recorded.add(prop);
-      return Reflect.has(holder.current, prop);
-    },
-    ownKeys() {
-      recorder.fallback = true;
-      return Reflect.ownKeys(holder.current);
-    },
-    getOwnPropertyDescriptor(_obj, prop) {
-      recorder.fallback = true;
-      const desc = Object.getOwnPropertyDescriptor(
-        holder.current,
-        prop
+    if (!contextValue) {
+      throw new Error(
+        "useSignalSelector must be used within a <SignalProvider>"
       );
-      return desc ? { ...desc, configurable: true } : desc;
-    },
-    getPrototypeOf() {
-      return Object.getPrototypeOf(holder.current);
-    },
-    set() {
-      return false;
-    },
-    deleteProperty() {
-      return false;
     }
-  });
-  registerRecordingHolder(recorder.proxy, holder);
-  return recorder;
-}
-function presentElement(recorder, value) {
-  if (value !== null && typeof value === "object") {
-    recorder.holder.current = value;
-    return recorder.proxy;
-  }
-  recorder.fallback = true;
-  return value;
-}
-var STRUCTURE_DEPS = {
-  find: {
-    matched: ["insertOrReorder"],
-    missed: ["append", "insertOrReorder"]
-  },
-  findLast: {
-    matched: ["append", "insertOrReorder"],
-    missed: ["append", "insertOrReorder"]
-  },
-  findIndex: {
-    matched: ["insertOrReorder", "remove"],
-    missed: ["append", "insertOrReorder"]
-  },
-  findLastIndex: {
-    matched: ["append", "insertOrReorder", "remove"],
-    missed: ["append", "insertOrReorder"]
-  },
-  filter: {
-    matched: ["append", "insertOrReorder", "remove"],
-    missed: ["append", "insertOrReorder", "remove"]
-  },
-  some: {
-    matched: ["remove"],
-    missed: ["append", "insertOrReorder"]
-  },
-  every: {
-    // For every, "matched" = returned true (no counterexample found)
-    matched: ["append", "insertOrReorder"],
-    // "missed" = returned false (counterexample exists)
-    missed: ["remove"]
-  }
-};
-function finalizeScanDeps(recorder, registry, parentPath, target, method, matched) {
-  if (recorder.fallback || recorder.recorded.size === 0) {
-    registry.getOrCreate(parentPath, target).get();
-    return;
-  }
-  for (const prop of recorder.recorded) {
-    registry.trackColumn(parentPath, prop).get();
-  }
-  const kinds = STRUCTURE_DEPS[method];
-  if (kinds) {
-    const wanted = matched ? kinds.matched : kinds.missed;
-    for (const kind of wanted) {
-      registry.trackStructure(parentPath, kind).get();
-    }
-  }
-}
-function createArrayMethodInterceptor(target, proxy, method, registry, parentPath) {
-  return function intercepted(...args) {
-    const m = method;
-    if (CALLBACK_METHODS.has(m)) {
-      const callback = args[0];
-      const recorder = createScanRecorder();
-      let result;
-      let matched;
-      if (m === "filter") {
-        const matches = [];
-        for (let i = 0; i < target.length; i++) {
-          if (callback(presentElement(recorder, target[i]), i, target)) {
-            matches.push(proxy[i]);
-          }
-        }
-        result = matches;
-        matched = matches.length > 0;
-        registerEscapeCandidate(matches);
-      } else if (FIND_METHODS.has(m)) {
-        const isForward = m === "find";
-        const step = isForward ? 1 : -1;
-        const start = isForward ? 0 : target.length - 1;
-        result = void 0;
-        for (let i = start; i >= 0 && i < target.length; i += step) {
-          if (callback(presentElement(recorder, target[i]), i, target)) {
-            result = proxy[i];
-            break;
-          }
-        }
-        matched = result !== void 0;
-      } else {
-        result = target[m](
-          (value, i, arr) => callback(presentElement(recorder, value), i, arr)
-        );
-        if (m === "findIndex" || m === "findLastIndex") {
-          matched = result !== -1;
-        } else {
-          matched = result === true;
-        }
-      }
-      finalizeScanDeps(recorder, registry, parentPath, target, m, matched);
-      return result;
-    }
-    registry.getOrCreate(parentPath, target).get();
-    if (m === "slice") {
-      const rawStart = args[0] ?? 0;
-      const rawEnd = args[1] ?? target.length;
-      const start = normalizeSliceIndex(rawStart, target.length);
-      const end = normalizeSliceIndex(rawEnd, target.length);
-      const result = [];
-      for (let i = start; i < end; i++) {
-        result.push(proxy[i]);
-      }
-      registerEscapeCandidate(result);
-      return result;
-    }
-    if (m === "includes" || m === "indexOf" || m === "lastIndexOf") {
-      const unwrappedArgs = args.map(
-        (arg, i) => i === 0 ? unwrap(arg) : arg
+    if (!("registry" in contextValue) || !("engine" in contextValue)) {
+      throw new Error(
+        "useSignalSelector must be used within a <SignalProvider>, not a regular <Provider>"
       );
-      return target[m](...unwrappedArgs);
     }
-    return target[m](...args);
+    return contextValue;
   };
 }
-
-// src/signals/trackingProxy.ts
-function isObjectOrArray2(v) {
-  return v !== null && typeof v === "object";
-}
-function isPlainObject3(v) {
-  const proto = Object.getPrototypeOf(v);
-  return proto === Object.prototype || proto === null;
-}
-function isIndexProp(prop) {
-  const c = prop.charCodeAt(0);
-  return c >= 48 && c <= 57;
-}
-var proxyPathMap = /* @__PURE__ */ new WeakMap();
-var proxyTargetMap = /* @__PURE__ */ new WeakMap();
-var recordingHolders = /* @__PURE__ */ new WeakMap();
-function registerRecordingHolder(proxy, holder) {
-  recordingHolders.set(proxy, holder);
-}
-function getProxyPath(value) {
-  if (value !== null && typeof value === "object") {
-    return proxyPathMap.get(value);
-  }
-  return void 0;
-}
-function getProxyTarget(value) {
-  return proxyTargetMap.get(value);
-}
-function unwrap(value) {
-  if (value !== null && typeof value === "object") {
-    const target = proxyTargetMap.get(value);
-    if (target !== void 0) return target;
-    const holder = recordingHolders.get(value);
-    if (holder !== void 0) return holder.current;
-  }
-  return value;
-}
-function createTrackingProxy(target, parentPath, registry, cache, leafTracker) {
-  if (leafTracker !== void 0) {
-    registry.leafTrackerHolder.current = leafTracker;
-  }
-  const cached = cache.get(target);
-  if (cached) return cached;
-  const shell = Array.isArray(target) ? [] : Object.create(Object.getPrototypeOf(target));
-  const pathKeyCache = /* @__PURE__ */ new Map();
-  function getPathKey(prop) {
-    let key = pathKeyCache.get(prop);
-    if (key === void 0) {
-      const segment = encodePathSegment(prop);
-      key = parentPath ? parentPath + "." + segment : segment;
-      pathKeyCache.set(prop, key);
-    }
-    return key;
-  }
-  const proxy = new Proxy(shell, {
-    get(_obj, prop, _receiver) {
-      if (typeof prop === "symbol") return Reflect.get(target, prop);
-      const value = target[prop];
-      const leafTracker2 = registry.leafTrackerHolder.current;
-      if (typeof value === "function") {
-        if (Array.isArray(target) && isOverriddenArrayMethod(prop)) {
-          if (leafTracker2) {
-            leafTracker2.traversedPaths.add(parentPath);
-          }
-          return createArrayMethodInterceptor(target, proxy, prop, registry, parentPath);
-        }
-        return value;
-      }
-      if (Array.isArray(target) && parentPath !== "" && isIndexProp(prop) && !isObjectOrArray2(value)) {
-        if (leafTracker2) {
-          leafTracker2.traversedPaths.add(parentPath);
-        }
-        registry.getOrCreate(parentPath, target).get();
-        return value;
-      }
-      let pathKey = getPathKey(prop);
-      if (isObjectOrArray2(value)) {
-        if (Array.isArray(target) && !Array.isArray(value) && !isNaN(Number(prop))) {
-          let meta = registry.getArrayMeta(parentPath);
-          if (!meta) {
-            const keyField = findKeyField(value);
-            if (keyField) {
-              meta = { keyField, entityMap: /* @__PURE__ */ new Map() };
-              registry.setArrayMeta(parentPath, meta);
-            }
-          }
-          if (meta) {
-            const kv = getKeyValue(value, meta.keyField);
-            if (kv !== void 0) {
-              pathKey = buildIdentityPath(parentPath, meta.keyField, kv);
-            }
-          }
-        }
-        if (!Array.isArray(value) && !isPlainObject3(value)) {
-          if (leafTracker2) {
-            leafTracker2.traversedPaths.add(parentPath);
-          }
-          registry.getOrCreate(pathKey, value).get();
-          return value;
-        }
-        registry.ensurePrefix(pathKey);
-        if (leafTracker2) {
-          leafTracker2.traversedPaths.add(parentPath);
-        }
-        const childProxy = createTrackingProxy(
-          value,
-          pathKey,
-          registry,
-          cache
-        );
-        if (leafTracker2) {
-          leafTracker2.accessedObjects.set(pathKey, value);
-        }
-        return childProxy;
-      }
-      if (leafTracker2) {
-        leafTracker2.traversedPaths.add(parentPath);
-      }
-      registry.getOrCreate(pathKey, value).get();
-      return value;
-    },
-    // Track when selectors iterate keys (Object.keys, for...in, .map, .filter, etc.)
-    // Built raw (NOT via getPathKey): '@@keys' is a meta segment, and
-    // getPathKey would %-escape its '@'s like a state key's.
-    ownKeys(_obj) {
-      const keysPath = parentPath ? parentPath + ".@@keys" : "@@keys";
-      registry.getOrCreate(keysPath, Reflect.ownKeys(target)).get();
-      return Reflect.ownKeys(target);
-    },
-    // Track has() checks for conditional property access (e.g., 'key' in obj)
-    has(_obj, prop) {
-      if (typeof prop === "symbol") return Reflect.has(target, prop);
-      const pathKey = getPathKey(prop);
-      registry.getOrCreate(pathKey, target[prop]).get();
-      return Reflect.has(target, prop);
-    },
-    // Delegate to real target for property descriptors
-    getOwnPropertyDescriptor(_obj, prop) {
-      const desc = Object.getOwnPropertyDescriptor(target, prop);
-      if (desc) {
-        return { ...desc, configurable: true };
-      }
-      return desc;
-    },
-    // Report the real target's prototype
-    getPrototypeOf(_obj) {
-      return Object.getPrototypeOf(target);
-    },
-    // Report the real target's extensibility
-    isExtensible(_obj) {
-      return Object.isExtensible(target);
-    },
-    // Prevent mutation
-    set() {
-      return false;
-    },
-    deleteProperty() {
-      return false;
-    }
-  });
-  cache.set(target, proxy);
-  proxyPathMap.set(proxy, parentPath);
-  proxyTargetMap.set(proxy, target);
-  return proxy;
-}
+var useSignalContext = /* @__PURE__ */ createSignalContextHook();
 
 // src/signals/untrack.ts
-var strategy = "recursive";
-function beginUntrackEvaluation() {
-  if (strategy === "registry") beginEvaluationQueue();
-  else clearEvaluationQueue();
-}
 function untrackResult(result) {
-  if (strategy === "none") return result;
-  if (strategy === "registry") {
-    const containers = drainEvaluationQueue();
-    if (containers.length === 0) return untrackRecursive(result, null);
-    const seen = /* @__PURE__ */ new WeakSet();
-    for (const container of containers) {
-      untrackRecursive(container, seen);
-    }
-    return untrackRecursive(result, seen);
-  }
   return untrackRecursive(result, null);
 }
 function untrackRecursive(value, seen) {
@@ -2034,86 +2124,310 @@ function untrackRecursive(value, seen) {
 }
 
 // src/signals/useSignalSelector.ts
-var { useRef, useMemo, useEffect, useSyncExternalStore } = React;
-function useSignalSelector(selector, equalityFn = Object.is) {
-  const { store, registry, engine } = useSignalContext();
+var { useRef, useMemo, useEffect, useSyncExternalStore, useDebugValue } = React;
+var refEquality = Object.is;
+var SELECTOR_THREW = Symbol("selector threw");
+function isPlainObjectState(v) {
+  if (v === null || typeof v !== "object") return false;
+  const proto = Object.getPrototypeOf(v);
+  return proto === Object.prototype || proto === null;
+}
+var useSignalSelectorImpl = (selector, equalityFnOrOptions = {}, useBoundSignalContext = useSignalContext) => {
+  const { equalityFn = refEquality, devModeChecks = {} } = typeof equalityFnOrOptions === "function" ? { equalityFn: equalityFnOrOptions, devModeChecks: {} } : equalityFnOrOptions;
+  if (process.env.NODE_ENV !== "production") {
+    if (!selector) {
+      throw new Error(`You must pass a selector to useSignalSelector`);
+    }
+    if (typeof selector !== "function") {
+      throw new Error(
+        `You must pass a function as a selector to useSignalSelector`
+      );
+    }
+    if (typeof equalityFn !== "function") {
+      throw new Error(
+        `You must pass a function as an equality function to useSignalSelector`
+      );
+    }
+  }
+  const reduxContext = useBoundSignalContext();
+  const { store, registry, engine } = reduxContext;
   const selectorRef = useRef(selector);
   const equalityFnRef = useRef(equalityFn);
   equalityFnRef.current = equalityFn;
+  const devModeChecksRef = useRef(devModeChecks);
+  devModeChecksRef.current = devModeChecks;
+  const contextRef = useRef(reduxContext);
+  contextRef.current = reduxContext;
   const bridge = useMemo(() => {
     let currentResult;
     let version = 0;
     let notifyReact = null;
     let suppressNotify = false;
+    let pendingError = null;
+    let built = false;
+    let disposeEffect = null;
+    let coarseSub = null;
+    let probeSegments = /* @__PURE__ */ new Set();
+    let ungateable = false;
+    let probedState = null;
+    let lastSnapshotState = null;
     const leafTracker = {
       accessedObjects: /* @__PURE__ */ new Map(),
       traversedPaths: /* @__PURE__ */ new Set()
     };
     const selectorVersionSignal = engine.signal(0);
-    const setSelector = (nextSelector) => {
-      selectorRef.current = nextSelector;
+    const recomputeInPlace = () => {
       suppressNotify = true;
       try {
         selectorVersionSignal.set(selectorVersionSignal.get() + 1);
-        currentResult = selectorComputed.get();
+        const value = selectorComputed.get();
+        if (pendingError === null) {
+          currentResult = value;
+        }
       } finally {
         suppressNotify = false;
       }
     };
-    const selectorComputed = engine.computed(() => {
-      selectorVersionSignal.get();
-      const state = store.getState();
-      leafTracker.accessedObjects.clear();
-      leafTracker.traversedPaths.clear();
-      beginUntrackEvaluation();
-      const proxy = createTrackingProxy(
-        state,
-        "",
-        registry,
-        registry.proxyCache,
-        leafTracker
-      );
-      const result = selectorRef.current(proxy);
-      const proxyPath = getProxyPath(result);
-      if (proxyPath !== void 0) {
-        registry.getOrCreate(proxyPath, result).get();
+    const setSelector = (nextSelector) => {
+      selectorRef.current = nextSelector;
+      if (built) {
+        recomputeInPlace();
+        if (pendingError !== null) {
+          throw pendingError;
+        }
+        return;
       }
-      for (const [objPath, rawValue] of leafTracker.accessedObjects) {
-        if (!leafTracker.traversedPaths.has(objPath)) {
-          if (objPath !== "") {
-            registry.getOrCreate(objPath, rawValue).get();
-          }
+      const state = store.getState();
+      if (isPlainObjectState(state)) {
+        probe(state);
+        if (coarseSub !== null) {
+          registry.segmentIndex.unregister(coarseSub);
+          coarseSub = {
+            // Ungateable after the swap (returns root / enumerates keys):
+            // the deep effect can't be attached during render, so
+            // register a wildcard — the next root change promotes it.
+            segments: ungateable ? null : probeSegments,
+            onCoarseHit
+          };
+          registry.segmentIndex.register(coarseSub);
+        }
+      } else {
+        built = true;
+        recomputeInPlace();
+        if (pendingError !== null) {
+          throw pendingError;
         }
       }
-      return untrackResult(result);
+    };
+    let firstRun = true;
+    const runDevModeChecks = (selected, proxy) => {
+      const { stabilityCheck = "once", identityFunctionCheck = "once" } = contextRef.current;
+      const finalChecks = {
+        stabilityCheck,
+        identityFunctionCheck,
+        ...devModeChecksRef.current
+      };
+      if (finalChecks.stabilityCheck === "always" || finalChecks.stabilityCheck === "once" && firstRun) {
+        const toCompare = selectorRef.current(proxy);
+        if (!equalityFnRef.current(selected, toCompare)) {
+          let stack = void 0;
+          try {
+            throw new Error();
+          } catch (e) {
+            stack = e.stack;
+          }
+          console.warn(
+            "Selector " + (selectorRef.current.name || "unknown") + " returned a different result when called with the same parameters. This can lead to unnecessary rerenders.\nSelectors that return a new reference (such as an object or an array) should be memoized: https://redux.js.org/usage/deriving-data-selectors#optimizing-selectors-with-memoization",
+            { selected, selected2: toCompare, stack }
+          );
+        }
+      }
+      if (finalChecks.identityFunctionCheck === "always" || finalChecks.identityFunctionCheck === "once" && firstRun) {
+        if (selected === proxy) {
+          let stack = void 0;
+          try {
+            throw new Error();
+          } catch (e) {
+            stack = e.stack;
+          }
+          console.warn(
+            "Selector " + (selectorRef.current.name || "unknown") + " returned the root state when called. With useSignalSelector this component will NEVER re-render, because signal dependencies are only created for the specific paths a selector reads \u2014 and this selector read none.\nSelect the smallest values your component needs instead of the entire state object.",
+            { stack }
+          );
+        }
+      }
+      firstRun = false;
+    };
+    const selectorComputed = engine.computed(() => {
+      selectorVersionSignal.get();
+      pendingError = null;
+      try {
+        const state = store.getState();
+        leafTracker.accessedObjects = /* @__PURE__ */ new Map();
+        leafTracker.traversedPaths = /* @__PURE__ */ new Set();
+        const proxy = createTrackingProxy(
+          state,
+          "",
+          registry,
+          registry.proxyCache,
+          leafTracker
+        );
+        const result = selectorRef.current(proxy);
+        if (process.env.NODE_ENV !== "production") {
+          runDevModeChecks(result, proxy);
+        }
+        const proxyPath = getProxyPath(result);
+        if (proxyPath !== void 0) {
+          registry.getOrCreate(proxyPath, result).get();
+        }
+        for (const [objPath, rawValue] of leafTracker.accessedObjects) {
+          if (!leafTracker.traversedPaths.has(objPath)) {
+            if (objPath !== "") {
+              registry.getOrCreate(objPath, rawValue).get();
+            }
+          }
+        }
+        return untrackResult(result);
+      } catch (e) {
+        pendingError = e;
+        return SELECTOR_THREW;
+      }
     });
-    currentResult = selectorComputed.get();
+    const attachEffect = () => {
+      let isFirst = true;
+      disposeEffect = engine.effect(() => {
+        const newValue = selectorComputed.get();
+        if (pendingError !== null) {
+          isFirst = false;
+          if (!suppressNotify) {
+            notifyReact?.();
+          }
+          return;
+        }
+        if (isFirst) {
+          isFirst = false;
+          return;
+        }
+        if (suppressNotify) {
+          currentResult = newValue;
+          return;
+        }
+        if (!equalityFnRef.current(currentResult, newValue)) {
+          currentResult = newValue;
+          version++;
+          notifyReact?.();
+        }
+      });
+    };
+    const probe = (state) => {
+      const { proxy, record } = createProbeProxy(state);
+      const value = selectorRef.current(proxy);
+      if (process.env.NODE_ENV !== "production") {
+        runDevModeChecks(value, proxy);
+      }
+      currentResult = untrackResult(value);
+      probeSegments = record.segments;
+      ungateable = record.segments.size === 0 || record.enumerated;
+      probedState = state;
+      lastSnapshotState = state;
+    };
+    const onCoarseHit = () => {
+      if (built || notifyReact === null) return;
+      if (coarseSub !== null) {
+        registry.segmentIndex.unregister(coarseSub);
+        coarseSub = null;
+      }
+      built = true;
+      attachEffect();
+      const newValue = selectorComputed.get();
+      if (pendingError !== null) {
+        notifyReact?.();
+        return;
+      }
+      if (!equalityFnRef.current(currentResult, newValue)) {
+        currentResult = newValue;
+        version++;
+        notifyReact?.();
+      }
+    };
+    const initialState = store.getState();
+    if (isPlainObjectState(initialState)) {
+      probe(initialState);
+    } else {
+      ungateable = true;
+    }
+    if (ungateable) {
+      built = true;
+      currentResult = selectorComputed.get();
+      if (pendingError !== null) {
+        throw pendingError;
+      }
+    }
     return {
       subscribe(onStoreChange) {
         notifyReact = onStoreChange;
-        let isFirst = true;
-        const dispose = engine.effect(() => {
-          const newValue = selectorComputed.get();
-          if (isFirst) {
-            isFirst = false;
-            return;
+        if (!built) {
+          const state = store.getState();
+          if (state !== probedState) {
+            if (isPlainObjectState(state)) {
+              try {
+                probe(state);
+              } catch {
+                built = true;
+                recomputeInPlace();
+              }
+            } else {
+              built = true;
+              recomputeInPlace();
+            }
           }
-          if (suppressNotify) {
-            currentResult = newValue;
-            return;
+          if (!built) {
+            if (ungateable) {
+              built = true;
+              const value = selectorComputed.get();
+              if (pendingError === null) {
+                currentResult = value;
+              }
+            } else {
+              coarseSub = { segments: probeSegments, onCoarseHit };
+              registry.segmentIndex.register(coarseSub);
+            }
           }
-          if (!equalityFnRef.current(currentResult, newValue)) {
-            currentResult = newValue;
-            version++;
-            notifyReact?.();
-          }
-        });
+        }
+        if (built && disposeEffect === null) {
+          attachEffect();
+        }
         return () => {
           notifyReact = null;
-          dispose();
+          if (coarseSub !== null) {
+            registry.segmentIndex.unregister(coarseSub);
+            coarseSub = null;
+          }
+          if (disposeEffect !== null) {
+            disposeEffect();
+            disposeEffect = null;
+          }
         };
       },
       getSnapshot() {
+        if (!built) {
+          const state = store.getState();
+          if (state !== lastSnapshotState) {
+            lastSnapshotState = state;
+            const fresh = selectorRef.current(state);
+            if (!equalityFnRef.current(currentResult, fresh)) {
+              currentResult = fresh;
+            }
+          }
+          return currentResult;
+        }
+        if (pendingError !== null) {
+          pendingError = null;
+          recomputeInPlace();
+          if (pendingError !== null) {
+            throw pendingError;
+          }
+        }
         return currentResult;
       },
       setSelector
@@ -2126,12 +2440,23 @@ function useSignalSelector(selector, equalityFn = Object.is) {
     return () => {
     };
   }, [bridge]);
-  return useSyncExternalStore(
+  const selectedState = useSyncExternalStore(
     bridge.subscribe,
     bridge.getSnapshot,
     bridge.getSnapshot
   );
+  useDebugValue(selectedState);
+  return selectedState;
+};
+function createSignalSelectorHook(context = ReactReduxContext) {
+  const useBoundSignalContext = context === ReactReduxContext ? useSignalContext : createSignalContextHook(context);
+  const useSignalSelectorBound = (selector, equalityFnOrOptions = {}) => useSignalSelectorImpl(selector, equalityFnOrOptions, useBoundSignalContext);
+  const boundHook = Object.assign(useSignalSelectorBound, {
+    withTypes: () => boundHook
+  });
+  return boundHook;
 }
+var useSignalSelector = /* @__PURE__ */ createSignalSelectorHook();
 
 // src/hooks/useReduxContext.ts
 function createReduxContextHook(context = ReactReduxContext) {
@@ -2180,11 +2505,11 @@ var useDispatch = /* @__PURE__ */ createDispatchHook();
 
 // src/hooks/useSelector.ts
 import { useSyncExternalStoreWithSelector } from "use-sync-external-store/with-selector.js";
-var refEquality = (a, b) => a === b;
+var refEquality2 = (a, b) => a === b;
 function createSelectorHook(context = ReactReduxContext) {
   const useReduxContext2 = context === ReactReduxContext ? useReduxContext : createReduxContextHook(context);
   const useSelector2 = (selector, equalityFnOrOptions = {}) => {
-    const { equalityFn = refEquality } = typeof equalityFnOrOptions === "function" ? { equalityFn: equalityFnOrOptions } : equalityFnOrOptions;
+    const { equalityFn = refEquality2 } = typeof equalityFnOrOptions === "function" ? { equalityFn: equalityFnOrOptions } : equalityFnOrOptions;
     if (process.env.NODE_ENV !== "production") {
       if (!selector) {
         throw new Error(`You must pass a selector to useSelector`);

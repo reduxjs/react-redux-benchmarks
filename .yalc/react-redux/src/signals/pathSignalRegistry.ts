@@ -1,5 +1,7 @@
 import { encodePathSegment } from './arrayKeys'
 import type { ArrayMeta } from './arrayKeys'
+import { createSegmentIndex } from './coarseSegments'
+import type { SegmentIndex } from './coarseSegments'
 import type { LeafObjectTracker, ProxyCache } from './trackingProxy'
 import type { PathKey, ReactiveSignal, SignalEngine } from './types'
 
@@ -45,6 +47,11 @@ export interface PathSignalRegistry {
 
   /** Return all registered signal paths (for testing/debugging). */
   debugPaths(): string[]
+
+  /** Coarse tier: inverted index of top-level state keys → deferred
+   *  subscribers. Driven by SignalProvider with the changed root keys
+   *  reconcileState reports each dispatch. */
+  segmentIndex: SegmentIndex
 
   /** Proxy cache for reusing proxies across evaluations (keyed by object identity). */
   proxyCache: ProxyCache
@@ -113,6 +120,13 @@ function buildStructurePath(arrayPath: string, kind: StructureKind): string {
 function isObjectOrArray(v: unknown): v is object {
   return v !== null && typeof v === 'object'
 }
+
+// Unique value written into a signal as it is pruned, guaranteed to be
+// `!==` its current value so the signal always fires. Setting the same
+// primitive back (the old behavior) silently no-ops for strings/booleans
+// under alien-signals' `!==` equality, leaving dependent computeds
+// permanently stale after an entity removal.
+const PRUNED = Symbol('pruned')
 
 // Increment prefix counters for all ancestor paths of a given pathKey.
 // e.g., "a.b.c" increments counters for "a.b.c", "a.b", "a"
@@ -255,9 +269,11 @@ export function createPathSignalRegistry(
           // Fire the signal before removing it. This ensures any computed
           // that depended on this path re-evaluates with the new state.
           // Prune runs inside engine.batch() via reconcileState, so the
-          // computed won't re-run until the batch completes.
-          const current = sig.get()
-          sig.set(typeof current === 'number' ? current + 1 : current)
+          // computed won't re-run until the batch completes. The PRUNED
+          // sentinel guarantees the write is `!==` the current value —
+          // dependents never read the value itself, they re-run the
+          // selector against real state.
+          sig.set(PRUNED)
           signals.delete(key)
           decrementPrefixes(prefixCounts, key)
         } else if (prefixOnlyPaths.has(key)) {
@@ -303,6 +319,8 @@ export function createPathSignalRegistry(
     debugPaths(): string[] {
       return Array.from(signals.keys()).sort()
     },
+
+    segmentIndex: createSegmentIndex(),
 
     proxyCache: proxyWeakMap,
 
