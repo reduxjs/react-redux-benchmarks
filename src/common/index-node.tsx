@@ -22,6 +22,7 @@ import { Provider } from 'react-redux'
 ;(window as any).renderResults = []
 ;(window as any).getDispatchStats = () => ({
   count: 0,
+  nestedCount: 0,
   totalTime: 0,
   avgTime: 0,
   maxTime: 0,

@@ -83,6 +83,7 @@ interface BenchmarkStats {
   };
   dispatch: {
     count: number;
+    nestedCount?: number;
     totalTime: number;
     avgTime: number;
   };
@@ -516,7 +517,7 @@ function reportResults(args: string[]) {
   console.log("");
   console.log("_Negative deltas = better (less time / fewer renders). Render counts can rise when the base build drops frames under load._");
   console.log("");
-  console.log("_`Blocked` = total ms inside `dispatch()`. It shows where work runs, not how much: read it next to `Script`. Note it double-counts nested dispatches, so thunk-heavy scenarios (RTKQ) overstate it._");
+  console.log("_`Blocked` = total ms inside `dispatch()`, outermost dispatch only. It shows where work runs, not how much: read it next to `Script`. It can exceed `Script` because the dispatch window also covers layout, GC, and other non-script task time._");
 }
 
 function listResults() {

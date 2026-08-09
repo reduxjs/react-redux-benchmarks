@@ -19,6 +19,7 @@ export interface RenderResult {
 
 export interface DispatchStats {
   count: number
+  nestedCount: number
   totalTime: number
   avgTime: number
   maxTime: number

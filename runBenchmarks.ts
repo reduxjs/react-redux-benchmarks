@@ -208,6 +208,7 @@ interface BenchmarkStats {
   }
   dispatch: {
     count: number
+    nestedCount: number
     totalTime: number
     avgTime: number
   }
@@ -275,6 +276,7 @@ function calculateBenchmarkStats(
   // Dispatch timing
   const dispatch = {
     count: dispatchStats.count,
+    nestedCount: dispatchStats.nestedCount,
     totalTime: dispatchStats.totalTime,
     avgTime: dispatchStats.avgTime,
   }
