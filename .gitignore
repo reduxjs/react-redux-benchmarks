@@ -75,6 +75,7 @@ dist*/
 build/
 profiles/
 bisect-results/
+bench-results/
 
 pprof*.pb.gz
 
