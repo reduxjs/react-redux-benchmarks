@@ -8,7 +8,7 @@
  *   list     List saved result files with metadata
  *
  * Usage:
- *   bun bench.ts run --rr-dir ../markerikson-react-redux [--label name] [--sha commit --exports file] [-l 10]
+ *   bun bench.ts run --rr-dir ../markerikson-react-redux [--label name] [--sha commit] [--exports file] [-l 10]
  *   bun bench.ts compare results/baseline.json results/experiment.json
  *   bun bench.ts list
  */
@@ -200,7 +200,10 @@ async function runBenchmarks(args: string[]) {
 
   ensureResultsDir();
 
-  // If --sha, checkout and apply exports override
+  // --sha checks out a commit; --exports swaps in an exports.ts. They are
+  // independent: --exports alone applies the override to the current
+  // working tree, which is how the signal-selector build gets produced
+  // without that override living in the react-redux repo.
   let originalExports: string | null = null;
   let originalHead: string | null = null;
 
@@ -212,18 +215,24 @@ async function runBenchmarks(args: string[]) {
 
     await $`git checkout -- src/exports.ts`.cwd(rrDir);
     await $`git checkout ${sha}`.cwd(rrDir);
-
-    if (exportsFile) {
-      const exportsPath = path.resolve(exportsFile);
-      if (!fs.existsSync(exportsPath)) {
-        console.error(`Error: exports file not found: ${exportsPath}`);
-        process.exit(1);
-      }
-      console.log(`[2/7] Applying exports override: ${exportsFile}`);
-      fs.copyFileSync(exportsPath, path.join(rrDir, "src/exports.ts"));
-    }
   } else {
     console.log("[1/7] Using current working tree...");
+  }
+
+  if (exportsFile) {
+    const exportsPath = path.resolve(exportsFile);
+    if (!fs.existsSync(exportsPath)) {
+      console.error(`Error: exports file not found: ${exportsPath}`);
+      process.exit(1);
+    }
+    // Only read the original if --sha did not already save it, so a
+    // combined run restores the file the user actually started with.
+    if (originalExports === null) {
+      originalExports = fs.readFileSync(path.join(rrDir, "src/exports.ts"), "utf-8");
+    }
+    console.log(`[2/7] Applying exports override: ${exportsFile}`);
+    fs.copyFileSync(exportsPath, path.join(rrDir, "src/exports.ts"));
+  } else {
     console.log("[2/7] No exports override needed");
   }
 
@@ -301,14 +310,17 @@ async function runBenchmarks(args: string[]) {
     fs.writeFileSync(outFile, JSON.stringify(resultFile, null, 2));
     console.log(`\nResults saved to: ${outFile}`);
   } finally {
-    // Restore original state if we checked out a sha
+    // Restore whatever we disturbed. --sha and --exports are restored
+    // independently: an exports-only run must not leave the override
+    // sitting in the working tree.
     if (sha && originalHead) {
       console.log(`\nRestoring original state (${originalHead})...`);
       await $`git checkout -- src/exports.ts`.cwd(rrDir).quiet().nothrow();
       await $`git checkout ${originalHead}`.cwd(rrDir).quiet().nothrow();
-      if (originalExports) {
-        fs.writeFileSync(path.join(rrDir, "src/exports.ts"), originalExports);
-      }
+    }
+    if (originalExports !== null) {
+      if (!sha) console.log(`\nRestoring original src/exports.ts...`);
+      fs.writeFileSync(path.join(rrDir, "src/exports.ts"), originalExports);
     }
   }
 }
@@ -597,7 +609,10 @@ Run options:
   --rr-dir <path>     Path to react-redux repo (required)
   --label <name>      Label for this run (auto-generated from git if omitted)
   --sha <commit>      Checkout this commit before building
-  --exports <file>    Copy this file as src/exports.ts before building
+  --exports <file>    Copy this file as src/exports.ts before building,
+                      restoring the original afterwards. Works with or
+                      without --sha. Use bench-exports.ts to build the
+                      signal-selector variant from a stock checkout.
   -l, --length <sec>  Seconds per benchmark (default: 10)
   -s, --scenarios <s> Comma-separated scenario list
 
@@ -613,6 +628,7 @@ Report options:
 Examples:
   bun bench.ts run --rr-dir ../markerikson-react-redux
   bun bench.ts run --rr-dir ../markerikson-react-redux --label my-fix -l 10
+  bun bench.ts run --rr-dir ../markerikson-react-redux --exports bench-exports.ts
   bun bench.ts run --rr-dir ../markerikson-react-redux --sha 471666e --exports bisect-results/exports-471666e.ts
     `);
     process.exit(command ? 1 : 0);
