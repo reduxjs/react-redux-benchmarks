@@ -131,6 +131,9 @@ const useSignalSelectorImpl = <S, R>(
     let probedState: unknown = null
     // Freshness cache for unbuilt getSnapshot recomputes.
     let lastSnapshotState: unknown = null
+    // Freshness cache for getServerSnapshot, keyed on the serverState ref.
+    let lastServerState: unknown = null
+    let serverResult: R
 
     // Create a computed that runs the selector through a tracking proxy.
     // This establishes signal dependencies on the paths the selector reads.
@@ -168,7 +171,13 @@ const useSignalSelectorImpl = <S, R>(
         selectorVersionSignal.set(selectorVersionSignal.get() + 1)
         const value = selectorComputed.get()
         if (pendingError === null) {
-          currentResult = value
+          // Apply the equality function before adopting. A selector that
+          // returns a new reference every call (`() => [1, 2, 3]`) paired
+          // with a custom equalityFn must keep the PREVIOUS reference, or
+          // every render hands React a new value and defeats the check.
+          if (!equalityFnRef.current(currentResult, value)) {
+            currentResult = value
+          }
         }
       } finally {
         suppressNotify = false
@@ -232,7 +241,7 @@ const useSignalSelectorImpl = <S, R>(
     // 'once' means literally once, on the first evaluation — a later
     // render-phase selector swap does NOT re-arm it.
     let firstRun = true
-    const runDevModeChecks = (selected: R, proxy: S): void => {
+    const runDevModeChecks = (selected: R, proxy: S, rawState: S): void => {
       const { stabilityCheck = 'once', identityFunctionCheck = 'once' } =
         contextRef.current
       const finalChecks: DevModeChecks = {
@@ -261,7 +270,11 @@ const useSignalSelectorImpl = <S, R>(
               (selectorRef.current.name || 'unknown') +
               ' returned a different result when called with the same parameters. This can lead to unnecessary rerenders.' +
               '\nSelectors that return a new reference (such as an object or an array) should be memoized: https://redux.js.org/usage/deriving-data-selectors#optimizing-selectors-with-memoization',
-            { selected, selected2: toCompare, stack },
+            // `state` is the RAW store state, not the proxy the selector
+            // ran against — the warning is user-facing and a tracking
+            // proxy in the console would register phantom dependencies
+            // for anything the user expanded in devtools.
+            { state: rawState, selected, selected2: toCompare, stack },
           )
         }
       }
@@ -311,7 +324,7 @@ const useSignalSelectorImpl = <S, R>(
         const result = selectorRef.current(proxy as S)
 
         if (process.env.NODE_ENV !== 'production') {
-          runDevModeChecks(result, proxy as S)
+          runDevModeChecks(result, proxy as S, state as S)
         }
 
         // If the selector returned a tracking proxy (object), explicitly
@@ -386,8 +399,13 @@ const useSignalSelectorImpl = <S, R>(
           // Render-phase selector swap (setSelector): adopt the value
           // so the equality baseline is current, but let the ongoing
           // render pick it up via getSnapshot instead of scheduling
-          // another render.
-          currentResult = newValue
+          // another render. Equality still applies: this effect runs
+          // synchronously inside recomputeInPlace, so skipping the check
+          // here would adopt the new reference before recomputeInPlace
+          // ever gets to reject it.
+          if (!equalityFnRef.current(currentResult, newValue)) {
+            currentResult = newValue
+          }
           return
         }
 
@@ -409,7 +427,7 @@ const useSignalSelectorImpl = <S, R>(
       const { proxy, record } = createProbeProxy(state)
       const value = selectorRef.current(proxy as S)
       if (process.env.NODE_ENV !== 'production') {
-        runDevModeChecks(value, proxy as S)
+        runDevModeChecks(value, proxy as S, state as S)
       }
       currentResult = untrackResult(value)
       probeSegments = record.segments
@@ -465,6 +483,43 @@ const useSignalSelectorImpl = <S, R>(
       if (pendingError !== null) {
         throw pendingError
       }
+    }
+
+    const getSnapshot = (): R => {
+      if (!built) {
+        // Deferred: no effect is watching yet. Serve fresh values for
+        // dispatches in the render→subscribe gap (and wildcard waits)
+        // by recomputing against RAW state — no proxies, no signals,
+        // no untracking needed. Cached per state ref; equalityFn
+        // preserves the previous result's identity for equal-but-new
+        // references. A throw propagates into render — stock parity.
+        const state = store.getState()
+        if (state !== lastSnapshotState) {
+          lastSnapshotState = state
+          const fresh = selectorRef.current(state as S)
+          if (!equalityFnRef.current(currentResult, fresh)) {
+            currentResult = fresh
+          }
+        }
+        return currentResult
+      }
+
+      if (pendingError !== null) {
+        // A previous evaluation threw. Retry against current state:
+        // the situation may have resolved (entity restored, or this is
+        // a fresh render pass after the parent re-rendered). Clear
+        // first — the effect's catch re-sets it if the selector still
+        // throws. On rethrow, LEAVE pendingError set so the next
+        // getSnapshot (React retries during render after a
+        // subscription-phase throw) re-evaluates instead of returning
+        // a stale value.
+        pendingError = null
+        recomputeInPlace()
+        if (pendingError !== null) {
+          throw pendingError
+        }
+      }
+      return currentResult
     }
 
     return {
@@ -528,46 +583,32 @@ const useSignalSelectorImpl = <S, R>(
         }
       },
 
-      getSnapshot(): R {
-        if (!built) {
-          // Deferred: no effect is watching yet. Serve fresh values for
-          // dispatches in the render→subscribe gap (and wildcard waits)
-          // by recomputing against RAW state — no proxies, no signals,
-          // no untracking needed. Cached per state ref; equalityFn
-          // preserves the previous result's identity for equal-but-new
-          // references. A throw propagates into render — stock parity.
-          const state = store.getState()
-          if (state !== lastSnapshotState) {
-            lastSnapshotState = state
-            const fresh = selectorRef.current(state as S)
-            if (!equalityFnRef.current(currentResult, fresh)) {
-              currentResult = fresh
-            }
-          }
-          return currentResult
-        }
+      getSnapshot,
 
-        if (pendingError !== null) {
-          // A previous evaluation threw. Retry against current state:
-          // the situation may have resolved (entity restored, or this is
-          // a fresh render pass after the parent re-rendered). Clear
-          // first — the effect's catch re-sets it if the selector still
-          // throws. On rethrow, LEAVE pendingError set so the next
-          // getSnapshot (React retries during render after a
-          // subscription-phase throw) re-evaluates instead of returning
-          // a stale value.
-          pendingError = null
-          recomputeInPlace()
-          if (pendingError !== null) {
-            throw pendingError
-          }
+      // Hydration snapshot. `<SignalProvider serverState>` records the
+      // state the server rendered against; the client store may already
+      // have moved on, and returning its current value would produce a
+      // hydration mismatch. Runs the raw selector against the server
+      // state — no proxies, no signals, nothing to register — and
+      // caches per server-state reference so repeated calls in one
+      // hydration pass return an identical result.
+      getServerSnapshot(): R {
+        const { getServerState } = contextRef.current
+        if (getServerState === undefined) {
+          return getSnapshot()
         }
-        return currentResult
+        const state = getServerState()
+        if (state !== lastServerState) {
+          lastServerState = state
+          serverResult = selectorRef.current(state as S)
+        }
+        return serverResult as R
       },
 
       setSelector,
     }
   }, [store, registry, engine])
+
 
   // Render-phase selector swap: if this render brought a different
   // selector function (inline selector closing over changed props),
@@ -584,12 +625,10 @@ const useSignalSelectorImpl = <S, R>(
     }
   }, [bridge])
 
-  // getSnapshot doubles as getServerSnapshot: the computed already ran
-  // during useMemo, so SSR renders the current selected value.
   const selectedState = useSyncExternalStore(
     bridge.subscribe,
     bridge.getSnapshot,
-    bridge.getSnapshot,
+    bridge.getServerSnapshot,
   )
 
   useDebugValue(selectedState)

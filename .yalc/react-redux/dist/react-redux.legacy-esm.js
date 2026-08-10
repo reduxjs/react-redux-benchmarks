@@ -29,6 +29,7 @@ var __objRest = (source, exclude) => {
     }
   return target;
 };
+var __publicField = (obj, key, value) => __defNormalProp(obj, typeof key !== "symbol" ? key + "" : key, value);
 
 // src/utils/react.ts
 import * as React from "react";
@@ -1476,12 +1477,77 @@ function createPathSignalRegistry(engine) {
     }
     children.add(pathKey);
   }
+  function detachFromParent(pathKey) {
+    const idx = pathKey.lastIndexOf(".");
+    if (idx === -1) return;
+    const parent = pathKey.substring(0, idx);
+    const siblings = childIndex.get(parent);
+    if (siblings === void 0) return;
+    siblings.delete(pathKey);
+    if (siblings.size === 0) {
+      childIndex.delete(parent);
+    }
+  }
+  const pendingReleases = /* @__PURE__ */ new Set();
+  function depthOf(path) {
+    let depth = 0;
+    for (let i = 0; i < path.length; i++) {
+      if (path.charCodeAt(i) === 46) depth++;
+    }
+    return depth;
+  }
+  function flushReleases() {
+    var _a;
+    const owed = /* @__PURE__ */ new Map();
+    const byDepth = [];
+    function addOwed(path, count) {
+      const prev = owed.get(path);
+      if (prev !== void 0) {
+        owed.set(path, prev + count);
+        return;
+      }
+      owed.set(path, count);
+      const depth = depthOf(path);
+      const bucket = byDepth[depth];
+      if (bucket === void 0) byDepth[depth] = [path];
+      else bucket.push(path);
+    }
+    for (const path of pendingReleases) addOwed(path, 1);
+    pendingReleases.clear();
+    for (let depth = byDepth.length - 1; depth >= 0; depth--) {
+      const bucket = byDepth[depth];
+      if (bucket === void 0) continue;
+      for (const path of bucket) {
+        let count = owed.get(path);
+        const current = prefixCounts.get(path);
+        if (current !== void 0) {
+          if (current <= count) prefixCounts.delete(path);
+          else prefixCounts.set(path, current - count);
+        }
+        if (!childIndex.has(path)) {
+          if (prefixOnlyPaths.has(path)) {
+            if (((_a = prefixCounts.get(path)) != null ? _a : 0) <= 1) {
+              prefixOnlyPaths.delete(path);
+              prefixCounts.delete(path);
+              detachFromParent(path);
+              count += 1;
+            }
+          } else if (!signals.has(path)) {
+            detachFromParent(path);
+          }
+        }
+        const dot = path.lastIndexOf(".");
+        if (dot !== -1) addOwed(path.substring(0, dot), count);
+      }
+    }
+  }
   const registry = {
     getOrCreate(pathKey, currentValue) {
       let sig = signals.get(pathKey);
       if (!sig) {
+        if (pendingReleases.size !== 0) flushReleases();
         const initialValue = isObjectOrArray2(currentValue) ? 0 : currentValue;
-        sig = engine.signal(initialValue);
+        sig = engine.signal(initialValue, registry, pathKey);
         signals.set(pathKey, sig);
         addToChildIndex(pathKey);
         if (prefixOnlyPaths.has(pathKey)) {
@@ -1494,6 +1560,7 @@ function createPathSignalRegistry(engine) {
     },
     ensurePrefix(pathKey) {
       if (signals.has(pathKey) || prefixOnlyPaths.has(pathKey)) return;
+      if (pendingReleases.size !== 0) flushReleases();
       prefixOnlyPaths.add(pathKey);
       addToChildIndex(pathKey);
       incrementPrefixes(prefixCounts, pathKey);
@@ -1509,6 +1576,7 @@ function createPathSignalRegistry(engine) {
       }
     },
     prune(pathKey) {
+      if (pendingReleases.size !== 0) flushReleases();
       const stack = [pathKey];
       while (stack.length > 0) {
         const key = stack.pop();
@@ -1544,7 +1612,41 @@ function createPathSignalRegistry(engine) {
         }
       }
     },
+    release(pathKey, node) {
+      if (signals.get(pathKey) !== node) return;
+      signals.delete(pathKey);
+      columnsByArray.delete(pathKey);
+      structuresByArray.delete(pathKey);
+      arrayMetas.delete(pathKey);
+      const columnMark = pathKey.lastIndexOf(".{*}.");
+      if (columnMark !== -1) {
+        const arrayPath = pathKey.substring(0, columnMark);
+        const cols = columnsByArray.get(arrayPath);
+        if (cols !== void 0) {
+          const encodedProp = pathKey.substring(columnMark + 5);
+          for (const prop of cols) {
+            if (encodePathSegment(prop) === encodedProp) {
+              cols.delete(prop);
+              break;
+            }
+          }
+          if (cols.size === 0) columnsByArray.delete(arrayPath);
+        }
+      } else {
+        const structureMark = pathKey.lastIndexOf(".@@");
+        if (structureMark !== -1) {
+          const arrayPath = pathKey.substring(0, structureMark);
+          const kinds = structuresByArray.get(arrayPath);
+          if (kinds !== void 0) {
+            kinds.delete(pathKey.substring(structureMark + 3));
+            if (kinds.size === 0) structuresByArray.delete(arrayPath);
+          }
+        }
+      }
+      pendingReleases.add(pathKey);
+    },
     pruneChildren(pathKey) {
+      if (pendingReleases.size !== 0) flushReleases();
       const children = childIndex.get(pathKey);
       if (!children) return;
       for (const child of Array.from(children)) {
@@ -1558,10 +1660,24 @@ function createPathSignalRegistry(engine) {
       return signals.has(pathKey);
     },
     hasPrefix(prefix) {
+      if (pendingReleases.size !== 0) flushReleases();
       return (prefixCounts.get(prefix) || 0) > 0;
     },
     debugPaths() {
       return Array.from(signals.keys()).sort();
+    },
+    debugStats() {
+      if (pendingReleases.size !== 0) flushReleases();
+      return {
+        signals: signals.size,
+        prefixCounts: prefixCounts.size,
+        prefixOnlyPaths: prefixOnlyPaths.size,
+        childIndex: childIndex.size,
+        arrayMetas: arrayMetas.size,
+        columnsByArray: columnsByArray.size,
+        structuresByArray: structuresByArray.size,
+        segmentSubs: registry.segmentIndex.size()
+      };
     },
     segmentIndex: createSegmentIndex(),
     proxyCache: proxyWeakMap,
@@ -1978,29 +2094,350 @@ function reconcileState(prev, next, registry, engine) {
   return null;
 }
 
+// src/signals/reactiveSystem.ts
+import { createReactiveSystem } from "alien-signals/system";
+var Mutable = 1;
+var Watching = 2;
+var RecursedCheck = 4;
+var Recursed = 8;
+var Dirty = 16;
+var Pending = 32;
+var HasChildEffect = 64;
+var cycle = 0;
+var runDepth = 0;
+var batchDepth = 0;
+var notifyIndex = 0;
+var queuedLength = 0;
+var activeSub;
+var queued = [];
+function isComputedNode(node) {
+  return "getter" in node;
+}
+function isSignalNode(node) {
+  return "currentValue" in node;
+}
+var { link, unlink, propagate, checkDirty, shallowPropagate } = createReactiveSystem({
+  update(node) {
+    if (isComputedNode(node)) {
+      return updateComputed(node);
+    }
+    if (isSignalNode(node)) {
+      return updateSignal(node);
+    }
+    node.flags = Mutable;
+    return true;
+  },
+  notify(node) {
+    var _a;
+    let effect2 = node;
+    let insertIndex = queuedLength;
+    let firstInsertedIndex = insertIndex;
+    for (; ; ) {
+      queued[insertIndex++] = effect2;
+      effect2.flags &= ~Watching;
+      const next = (_a = effect2.subs) == null ? void 0 : _a.sub;
+      if (next === void 0 || !(next.flags & Watching)) {
+        break;
+      }
+      effect2 = next;
+    }
+    queuedLength = insertIndex;
+    while (firstInsertedIndex < --insertIndex) {
+      const left = queued[firstInsertedIndex];
+      queued[firstInsertedIndex++] = queued[insertIndex];
+      queued[insertIndex] = left;
+    }
+  },
+  unwatched(node) {
+    if (isComputedNode(node)) {
+      if (node.depsTail !== void 0) {
+        node.flags = Mutable | Dirty;
+        disposeAllDepsInReverse(node);
+      }
+      return;
+    }
+    if (isSignalNode(node)) {
+      const owner = node.ownerRegistry;
+      if (owner !== void 0) {
+        owner.release(node.ownerPath, node);
+      }
+      return;
+    }
+    stopEffect(node);
+  }
+});
+var SignalNode = class {
+  constructor(value, owner, path) {
+    __publicField(this, "currentValue");
+    __publicField(this, "pendingValue");
+    __publicField(this, "subs");
+    __publicField(this, "subsTail");
+    __publicField(this, "flags", Mutable);
+    /** Set when the registry owns this node; drives release-on-unwatch. */
+    __publicField(this, "ownerRegistry");
+    __publicField(this, "ownerPath");
+    this.currentValue = value;
+    this.pendingValue = value;
+    this.ownerRegistry = owner;
+    this.ownerPath = path != null ? path : "";
+  }
+  get() {
+    if (this.flags & Dirty) {
+      if (updateSignal(this)) {
+        const subs = this.subs;
+        if (subs !== void 0) {
+          shallowPropagate(subs);
+        }
+      }
+    }
+    const sub = activeSub;
+    if (sub !== void 0) {
+      link(this, sub, cycle);
+    }
+    return this.currentValue;
+  }
+  set(value) {
+    if (this.pendingValue !== (this.pendingValue = value)) {
+      this.flags = Mutable | Dirty;
+      const subs = this.subs;
+      if (subs !== void 0) {
+        propagate(subs, !!runDepth);
+        if (!batchDepth) {
+          flush();
+        }
+      }
+    }
+  }
+};
+var ComputedNode = class {
+  constructor(getter) {
+    __publicField(this, "value");
+    __publicField(this, "subs");
+    __publicField(this, "subsTail");
+    __publicField(this, "deps");
+    __publicField(this, "depsTail");
+    __publicField(this, "flags", 0);
+    __publicField(this, "getter");
+    this.getter = getter;
+  }
+  get() {
+    const flags = this.flags;
+    if (flags & Dirty || flags & Pending && (checkDirty(this.deps, this) || (this.flags = flags & ~Pending, false))) {
+      if (updateComputed(this)) {
+        const subs = this.subs;
+        if (subs !== void 0) {
+          shallowPropagate(subs);
+        }
+      }
+    } else if (!flags) {
+      this.flags = Mutable | RecursedCheck;
+      const prevSub = setActiveSub(this);
+      try {
+        this.value = this.getter();
+      } finally {
+        activeSub = prevSub;
+        this.flags &= ~RecursedCheck;
+      }
+    }
+    const sub = activeSub;
+    if (sub !== void 0) {
+      link(this, sub, cycle);
+    }
+    return this.value;
+  }
+};
+function setActiveSub(sub) {
+  const prevSub = activeSub;
+  activeSub = sub;
+  return prevSub;
+}
+function startBatch() {
+  ++batchDepth;
+}
+function endBatch() {
+  if (!--batchDepth) {
+    flush();
+  }
+}
+function signal(initialValue, owner, path) {
+  return new SignalNode(initialValue, owner, path);
+}
+function computed(getter) {
+  return new ComputedNode(getter);
+}
+function effect(fn) {
+  var _a;
+  const e = {
+    fn,
+    cleanup: void 0,
+    subs: void 0,
+    subsTail: void 0,
+    deps: void 0,
+    depsTail: void 0,
+    flags: Watching | RecursedCheck
+  };
+  const prevSub = setActiveSub(e);
+  if (prevSub !== void 0) {
+    link(e, prevSub, 0);
+    prevSub.flags |= HasChildEffect;
+  }
+  try {
+    ++runDepth;
+    e.cleanup = (_a = e.fn()) != null ? _a : void 0;
+  } finally {
+    --runDepth;
+    activeSub = prevSub;
+    e.flags &= ~RecursedCheck;
+  }
+  return () => stopEffect(e);
+}
+function effectScope(fn) {
+  const e = {
+    deps: void 0,
+    depsTail: void 0,
+    subs: void 0,
+    subsTail: void 0,
+    flags: Mutable
+  };
+  const prevSub = setActiveSub(e);
+  if (prevSub !== void 0) {
+    link(e, prevSub, 0);
+    prevSub.flags |= HasChildEffect;
+  }
+  try {
+    fn();
+  } finally {
+    activeSub = prevSub;
+  }
+  return () => stopEffect(e);
+}
+function unlinkChildEffects(sub) {
+  let current = sub.depsTail;
+  while (current !== void 0) {
+    const prev = current.prevDep;
+    const dep = current.dep;
+    if (!isComputedNode(dep) && !isSignalNode(dep)) {
+      unlink(current, sub);
+    }
+    current = prev;
+  }
+}
+function updateComputed(c) {
+  if (c.flags & HasChildEffect) {
+    unlinkChildEffects(c);
+  }
+  c.depsTail = void 0;
+  c.flags = Mutable | RecursedCheck;
+  const prevSub = setActiveSub(c);
+  try {
+    ++cycle;
+    const oldValue = c.value;
+    return oldValue !== (c.value = c.getter(oldValue));
+  } finally {
+    activeSub = prevSub;
+    c.flags &= ~RecursedCheck;
+    purgeDeps(c);
+  }
+}
+function updateSignal(s) {
+  s.flags = Mutable;
+  return s.currentValue !== (s.currentValue = s.pendingValue);
+}
+function run(e) {
+  var _a;
+  const flags = e.flags;
+  if (flags & Dirty || flags & Pending && checkDirty(e.deps, e)) {
+    if (flags & HasChildEffect) {
+      unlinkChildEffects(e);
+    }
+    if (e.cleanup) {
+      runCleanup(e);
+      if (!e.flags) {
+        return;
+      }
+    }
+    e.depsTail = void 0;
+    e.flags = Watching | RecursedCheck;
+    const prevSub = setActiveSub(e);
+    try {
+      ++cycle;
+      ++runDepth;
+      e.cleanup = (_a = e.fn()) != null ? _a : void 0;
+    } finally {
+      --runDepth;
+      activeSub = prevSub;
+      e.flags &= ~RecursedCheck;
+      purgeDeps(e);
+    }
+  } else if (e.deps !== void 0) {
+    e.flags = Watching | flags & HasChildEffect;
+  }
+}
+function flush() {
+  try {
+    while (notifyIndex < queuedLength) {
+      const effect2 = queued[notifyIndex];
+      queued[notifyIndex++] = void 0;
+      run(effect2);
+    }
+  } finally {
+    while (notifyIndex < queuedLength) {
+      const effect2 = queued[notifyIndex];
+      queued[notifyIndex++] = void 0;
+      effect2.flags |= Watching | Recursed;
+    }
+    notifyIndex = 0;
+    queuedLength = 0;
+  }
+}
+function runCleanup(e) {
+  const cleanup = e.cleanup;
+  e.cleanup = void 0;
+  const prevSub = activeSub;
+  activeSub = void 0;
+  try {
+    cleanup();
+  } finally {
+    activeSub = prevSub;
+  }
+}
+function stopEffect(e) {
+  e.flags = 0;
+  disposeAllDepsInReverse(e);
+  const sub = e.subs;
+  if (sub !== void 0) {
+    unlink(sub);
+  }
+  if (e.cleanup) {
+    runCleanup(e);
+  }
+}
+function disposeAllDepsInReverse(sub) {
+  let current = sub.depsTail;
+  while (current !== void 0) {
+    const prev = current.prevDep;
+    unlink(current, sub);
+    current = prev;
+  }
+}
+function purgeDeps(sub) {
+  const depsTail = sub.depsTail;
+  let dep = depsTail !== void 0 ? depsTail.nextDep : sub.deps;
+  while (dep !== void 0) {
+    dep = unlink(dep, sub);
+  }
+}
+
 // src/signals/engine.ts
-import {
-  signal as alienSignal,
-  computed as alienComputed,
-  effect as alienEffect,
-  effectScope as alienEffectScope,
-  startBatch,
-  endBatch
-} from "alien-signals";
 var alienEngine = {
-  signal(value) {
-    const s = alienSignal(value);
-    return {
-      get: () => s(),
-      set: (v) => s(v)
-    };
+  signal(value, owner, path) {
+    return signal(value, owner, path);
   },
   computed(fn) {
-    const c = alienComputed(fn);
-    return { get: () => c() };
+    return computed(fn);
   },
   effect(fn) {
-    return alienEffect(fn);
+    return effect(fn);
   },
   batch(fn) {
     startBatch();
@@ -2015,7 +2452,7 @@ var alienEngine = {
     return {
       run(fn) {
         let result;
-        dispose = alienEffectScope(() => {
+        dispose = effectScope(() => {
           result = fn();
         });
         return result;
@@ -2207,6 +2644,8 @@ var useSignalSelectorImpl = (selector, equalityFnOrOptions = {}, useBoundSignalC
     let ungateable = false;
     let probedState = null;
     let lastSnapshotState = null;
+    let lastServerState = null;
+    let serverResult;
     const leafTracker = {
       accessedObjects: /* @__PURE__ */ new Map(),
       traversedPaths: /* @__PURE__ */ new Set()
@@ -2218,7 +2657,9 @@ var useSignalSelectorImpl = (selector, equalityFnOrOptions = {}, useBoundSignalC
         selectorVersionSignal.set(selectorVersionSignal.get() + 1);
         const value = selectorComputed.get();
         if (pendingError === null) {
-          currentResult = value;
+          if (!equalityFnRef.current(currentResult, value)) {
+            currentResult = value;
+          }
         }
       } finally {
         suppressNotify = false;
@@ -2256,7 +2697,7 @@ var useSignalSelectorImpl = (selector, equalityFnOrOptions = {}, useBoundSignalC
       }
     };
     let firstRun = true;
-    const runDevModeChecks = (selected, proxy) => {
+    const runDevModeChecks = (selected, proxy, rawState) => {
       const { stabilityCheck = "once", identityFunctionCheck = "once" } = contextRef.current;
       const finalChecks = __spreadValues({
         stabilityCheck,
@@ -2273,7 +2714,11 @@ var useSignalSelectorImpl = (selector, equalityFnOrOptions = {}, useBoundSignalC
           }
           console.warn(
             "Selector " + (selectorRef.current.name || "unknown") + " returned a different result when called with the same parameters. This can lead to unnecessary rerenders.\nSelectors that return a new reference (such as an object or an array) should be memoized: https://redux.js.org/usage/deriving-data-selectors#optimizing-selectors-with-memoization",
-            { selected, selected2: toCompare, stack }
+            // `state` is the RAW store state, not the proxy the selector
+            // ran against — the warning is user-facing and a tracking
+            // proxy in the console would register phantom dependencies
+            // for anything the user expanded in devtools.
+            { state: rawState, selected, selected2: toCompare, stack }
           );
         }
       }
@@ -2309,7 +2754,7 @@ var useSignalSelectorImpl = (selector, equalityFnOrOptions = {}, useBoundSignalC
         );
         const result = selectorRef.current(proxy);
         if (process.env.NODE_ENV !== "production") {
-          runDevModeChecks(result, proxy);
+          runDevModeChecks(result, proxy, state);
         }
         const proxyPath = getProxyPath(result);
         if (proxyPath !== void 0) {
@@ -2344,7 +2789,9 @@ var useSignalSelectorImpl = (selector, equalityFnOrOptions = {}, useBoundSignalC
           return;
         }
         if (suppressNotify) {
-          currentResult = newValue;
+          if (!equalityFnRef.current(currentResult, newValue)) {
+            currentResult = newValue;
+          }
           return;
         }
         if (!equalityFnRef.current(currentResult, newValue)) {
@@ -2358,7 +2805,7 @@ var useSignalSelectorImpl = (selector, equalityFnOrOptions = {}, useBoundSignalC
       const { proxy, record } = createProbeProxy(state);
       const value = selectorRef.current(proxy);
       if (process.env.NODE_ENV !== "production") {
-        runDevModeChecks(value, proxy);
+        runDevModeChecks(value, proxy, state);
       }
       currentResult = untrackResult(value);
       probeSegments = record.segments;
@@ -2398,6 +2845,27 @@ var useSignalSelectorImpl = (selector, equalityFnOrOptions = {}, useBoundSignalC
         throw pendingError;
       }
     }
+    const getSnapshot = () => {
+      if (!built) {
+        const state = store.getState();
+        if (state !== lastSnapshotState) {
+          lastSnapshotState = state;
+          const fresh = selectorRef.current(state);
+          if (!equalityFnRef.current(currentResult, fresh)) {
+            currentResult = fresh;
+          }
+        }
+        return currentResult;
+      }
+      if (pendingError !== null) {
+        pendingError = null;
+        recomputeInPlace();
+        if (pendingError !== null) {
+          throw pendingError;
+        }
+      }
+      return currentResult;
+    };
     return {
       subscribe(onStoreChange) {
         notifyReact = onStoreChange;
@@ -2444,26 +2912,25 @@ var useSignalSelectorImpl = (selector, equalityFnOrOptions = {}, useBoundSignalC
           }
         };
       },
-      getSnapshot() {
-        if (!built) {
-          const state = store.getState();
-          if (state !== lastSnapshotState) {
-            lastSnapshotState = state;
-            const fresh = selectorRef.current(state);
-            if (!equalityFnRef.current(currentResult, fresh)) {
-              currentResult = fresh;
-            }
-          }
-          return currentResult;
+      getSnapshot,
+      // Hydration snapshot. `<SignalProvider serverState>` records the
+      // state the server rendered against; the client store may already
+      // have moved on, and returning its current value would produce a
+      // hydration mismatch. Runs the raw selector against the server
+      // state — no proxies, no signals, nothing to register — and
+      // caches per server-state reference so repeated calls in one
+      // hydration pass return an identical result.
+      getServerSnapshot() {
+        const { getServerState } = contextRef.current;
+        if (getServerState === void 0) {
+          return getSnapshot();
         }
-        if (pendingError !== null) {
-          pendingError = null;
-          recomputeInPlace();
-          if (pendingError !== null) {
-            throw pendingError;
-          }
+        const state = getServerState();
+        if (state !== lastServerState) {
+          lastServerState = state;
+          serverResult = selectorRef.current(state);
         }
-        return currentResult;
+        return serverResult;
       },
       setSelector
     };
@@ -2478,7 +2945,7 @@ var useSignalSelectorImpl = (selector, equalityFnOrOptions = {}, useBoundSignalC
   const selectedState = useSyncExternalStore(
     bridge.subscribe,
     bridge.getSnapshot,
-    bridge.getSnapshot
+    bridge.getServerSnapshot
   );
   useDebugValue(selectedState);
   return selectedState;

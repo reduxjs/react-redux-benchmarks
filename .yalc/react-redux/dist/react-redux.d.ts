@@ -404,6 +404,23 @@ interface ProviderProps<A extends Action<string> = UnknownAction, S = unknown> {
     children: ReactNode;
 }
 
+/**
+ * Implemented by `pathSignalRegistry`. A signal node created with an
+ * owner calls `release` when it loses its last subscriber.
+ */
+interface SignalOwner {
+    /**
+     * Drop the registry bookkeeping for `pathKey`, but only if `node` is
+     * still the signal currently registered at that path.
+     *
+     * The identity check matters: `prune()` can delete a signal and a
+     * later `getOrCreate` can install a fresh one at the same path before
+     * the old node's links are torn down. Releasing on path alone would
+     * then evict a live signal.
+     */
+    release(pathKey: string, node: ReactiveSignal<unknown>): void;
+}
+
 interface ReactiveSignal<T> {
     get(): T;
     set(value: T): void;
@@ -412,7 +429,13 @@ interface ReactiveComputed<T> {
     get(): T;
 }
 interface SignalEngine {
-    signal<T>(value: T): ReactiveSignal<T>;
+    /**
+     * Create a signal. When `owner` and `path` are supplied, the signal
+     * calls `owner.release(path, node)` as soon as it loses its last
+     * subscriber, which is how `pathSignalRegistry` drops a path once no
+     * mounted component watches it.
+     */
+    signal<T>(value: T, owner?: SignalOwner, path?: string): ReactiveSignal<T>;
     computed<T>(fn: () => T): ReactiveComputed<T>;
     /** Create an effect. Returns a dispose function that stops it. */
     effect(fn: () => void): () => void;
