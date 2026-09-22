@@ -36,9 +36,16 @@ async function bundle(options: BuildOptions) {
     require.resolve(`${reactReduxPackageVersion}/package.json`),
   )
   const reactReduxPkg = require(`${reactReduxPackageVersion}/package.json`)
+  // Signals versions resolve to the `react-redux/signals` entry, which
+  // re-exports the stock API with `Provider` and `useSelector` pointed at
+  // `SignalProvider` and `useSignalSelector`. Scenario code stays unchanged.
+  const isSignalsVersion = reactReduxVersion.includes('signals')
+  const exportsEntry =
+    (isSignalsVersion && reactReduxPkg.exports?.['./signals']?.import) ||
+    reactReduxPkg.exports?.['.']?.import
   // Prefer ESM entry from exports, fall back to CJS
-  const reactReduxEntry = reactReduxPkg.exports?.['.']?.import
-    ? path.join(reactReduxPkgDir, reactReduxPkg.exports['.'].import)
+  const reactReduxEntry = exportsEntry
+    ? path.join(reactReduxPkgDir, exportsEntry)
     : require.resolve(reactReduxPackageVersion)
   const reactDomProfilingPath = require.resolve('react-dom/profiling')
 

@@ -248,7 +248,7 @@ async function runBenchmarks(args: string[]) {
   try {
     // Build react-redux
     console.log("[3/7] Building react-redux...");
-    await $`yarn build`.cwd(rrDir);
+    await $`pnpm build`.cwd(rrDir);
 
     // Yalc publish
     console.log("[4/7] Publishing via yalc...");
@@ -457,7 +457,7 @@ async function compareResults(files: string[]) {
 
 function reportResults(args: string[]) {
   let file = "";
-  let base = "9.2.0";
+  let base = "9.3.0";
   let target = SIGNALS_VERSION;
 
   for (let i = 0; i < args.length; i++) {
@@ -620,7 +620,7 @@ Compare:
   bun bench.ts compare bench-results/baseline.json bench-results/experiment.json
 
 Report options:
-  --base <version>    Baseline version key (default: 9.2.0)
+  --base <version>    Baseline version key (default: 9.3.0)
   --target <version>  Comparison version key (default: ${SIGNALS_VERSION})
 
   bun bench.ts report bench-results/untrack-signals.json

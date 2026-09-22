@@ -51,9 +51,13 @@ export function instrumentationPlugin(): Plugin {
       }
 
       // Signal experiment — the .yalc react-redux resolves through pnpm as
-      // react-redux@file+.yalc+reac.../node_modules/react-redux/dist/react-redux.mjs
-      // Match any react-redux.mjs that comes from a file: protocol link (the .yalc version)
-      if (normalizedId.includes('/react-redux/dist/react-redux.mjs') && normalizedId.includes('file+.yalc')) {
+      // react-redux@file+.yalc+reac.../node_modules/react-redux/dist/react-redux-signals.mjs
+      // (the `react-redux/signals` entry). Older builds used react-redux.mjs
+      // with an exports override. Match either, but only from the yalc link.
+      if (
+        /\/react-redux\/dist\/react-redux(-signals)?\.mjs$/.test(normalizedId) &&
+        normalizedId.includes('file+.yalc')
+      ) {
         let result = code
         if (!initInjected) {
           result = INST_INIT_CODE + '\n' + result

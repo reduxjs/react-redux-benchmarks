@@ -22,9 +22,12 @@ function applySplices(code: string, splices: Splice[]): string {
  *
  * Target patterns in the bundle (newest first):
  * ```js
+ * const changedRootKeys = reconcileState(prev, next, registry, alienEngine);
  * const changedRootKeys = reconcileState(prev, next, registry, engine);
  * reconcileState(prev, next, registry, engine);
  * ```
+ * The last argument is matched as a metavariable so the engine binding's
+ * name can change without breaking the transform.
  *
  * Wraps the whole statement with reconcileTime/reconcileCount timing,
  * preserving the declaration (and its return value) when present.
@@ -38,7 +41,7 @@ export function transformSignalProvider(code: string): string {
   let reconcileStmt = root.find({
     rule: {
       pattern:
-        "const changedRootKeys = reconcileState(prev, next, registry, engine)",
+        "const changedRootKeys = reconcileState(prev, next, registry, $ENGINE)",
     },
   });
 
@@ -47,13 +50,13 @@ export function transformSignalProvider(code: string): string {
     // parent expression_statement.
     const reconcileCall = root.find({
       rule: {
-        pattern: "reconcileState(prev, next, registry, engine)",
+        pattern: "reconcileState(prev, next, registry, $ENGINE)",
       },
     });
 
     if (!reconcileCall) {
       throw new Error(
-        "[instrument] transformSignalProvider FAILED: Could not find reconcileState(prev, next, registry, engine) call (bare or `const changedRootKeys = ...` form). " +
+        "[instrument] transformSignalProvider FAILED: Could not find reconcileState(prev, next, registry, $ENGINE) call (bare or `const changedRootKeys = ...` form). " +
         "The react-redux bundle patterns may have changed. Update the ast-grep pattern in reactReduxSignalTransform.ts."
       );
     }
@@ -95,15 +98,21 @@ export function transformSignalProvider(code: string): string {
  *
  * Target pattern in the bundle (as of current yalc build):
  * ```js
- * const selectorComputed = engine.computed(() => {
- *   const state = store.getState();
- *   const proxy = createTrackingProxy(state, "", registry, registry.proxyCache);
- *   const result = selectorRef.current(proxy);
- *   const proxyPath = getProxyPath(result);
- *   if (proxyPath !== void 0) { ... }
- *   return result;
+ * const selectorComputed = computed(() => {
+ *   selectorVersionSignal.get();
+ *   pendingError = null;
+ *   try {
+ *     const state = store.getState();
+ *     ...
+ *     const proxy = createTrackingProxy(state, "", registry, registry.proxyCache, leafTracker);
+ *     const result = selectorRef.current(proxy);
+ *     ...
+ *     return untrackResult(result);
+ *   } catch (e) { ... }
  * });
  * ```
+ * Older builds called `engine.computed(...)` and returned `result` directly;
+ * both shapes are accepted.
  *
  * Strategy: insert timer before first statement, insert timing accumulation
  * before `return result` inside the computed callback.
@@ -115,7 +124,10 @@ export function transformSignalSelector(code: string): string {
   // Try `const state = store.getState()` first (separate declaration),
   // fall back to finding `createTrackingProxy` if state is inlined.
   const insideComputed = {
-    pattern: "engine.computed($FN)",
+    any: [
+      { pattern: "const selectorComputed = computed($FN)" },
+      { pattern: "const selectorComputed = engine.computed($FN)" },
+    ],
     stopBy: "end",
   };
 
@@ -138,7 +150,7 @@ export function transformSignalSelector(code: string): string {
 
   if (!firstStmt) {
     throw new Error(
-      "[instrument] transformSignalSelector FAILED: Could not find first statement inside engine.computed() callback. " +
+      "[instrument] transformSignalSelector FAILED: Could not find first statement inside the selectorComputed callback. " +
       "Expected `const state = store.getState()` or `const proxy = createTrackingProxy(...)`. " +
       "The react-redux bundle patterns may have changed. Update the ast-grep pattern in reactReduxSignalTransform.ts."
     );
@@ -164,7 +176,7 @@ export function transformSignalSelector(code: string): string {
 
   if (!untrackReturnStmt && !plainReturnStmt) {
     throw new Error(
-      "[instrument] transformSignalSelector FAILED: Could not find `return untrackResult(result)` or `return result` inside engine.computed(). " +
+      "[instrument] transformSignalSelector FAILED: Could not find `return untrackResult(result)` or `return result` inside the selectorComputed callback. " +
       "The react-redux bundle patterns may have changed. Update the ast-grep pattern in reactReduxSignalTransform.ts."
     );
   }
@@ -200,7 +212,7 @@ export function transformSignalSelector(code: string): string {
   }
 
   console.log(
-    "[instrument] Wrapped engine.computed() selector callback with signalSelectorTime timing"
+    "[instrument] Wrapped selectorComputed callback with signalSelectorTime timing"
   );
 
   return applySplices(code, splices);
